@@ -3686,6 +3686,11 @@ Remove reminder brings up a model with a combo box with all the current reminder
 
      F: Look at this code. Pay attention to the instructions for CLAUDE at the top.  Immediate task: When I reconnect as the storyteller, I do not get a reconstruction of the game state, even though I think I should be able to derive much of it from the pubnub messages. E.g. the set of players and the messages that I have sent to them and their responses.
 
+     (At this point in development I merged in a collection of hand-written fixes from Rob)
+
+     F: Look at this code. Pay attention to the instructions for CLAUDE. I want to rename the page from "Blood on the Clocktower" to "Scratch on the Smartphone". Can you do that?
+
+
      TODO: while this does re-establish the set of players, it does not load up past messages that we have sent. Also, we could easily include the player assignments in the pubnub messages for later retrieval in these situations.
 
      TODO: it seems like when I send a custom private message to a player it isn't being rendered on the other end. Or maybe the messages aren't being ordered in the way I would expect? 1. They are ending up on the top of the recipients text box, and 2. they might only be showing up after a reconnect, not during a live game. Or maybe I've exhausted what pubnub lets me do with demo accounts. Or is the problem that I have two storytellers connected at the same time...
