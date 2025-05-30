@@ -685,7 +685,10 @@ Steph</textarea>
                 <button onclick="showAddReminderModal()" style="background: linear-gradient(45deg, #ffd93d, #f39c12);">📝 Add Reminder</button>
                 <button onclick="showRemoveReminderModal()" style="background: linear-gradient(45deg, #ff6b6b, #ee5a24);">🗑️ Remove Reminder</button>
                 <button onclick="showChangeRoleModal()" style="background: linear-gradient(45deg, #26de81, #20bf6b);">🎭 Change Role</button>
-                <button onclick="closeRoleAssignmentModal()" style="background: #666;">Cancel</button>
+                <button id="deathToggleBtn" onclick="togglePlayerDeath()" style="background: linear-gradient(45deg, #9b59b6, #8e44ad);">💀 Dies</button>
+	    </div>
+            <div style="margin-top: 10px;">	    
+                <button onclick="closeRoleAssignmentModal()" style="width: 100%; background: #666;">Cancel</button>
             </div>
         </div>
     </div>
@@ -776,6 +779,7 @@ Steph</textarea>
         let selectedPlayerForRole = null;
         let currentGameId = null;
         let playerReminders = {}; // Track reminders for each player
+        let playerDeathState = {}; // Track alive/dead status for each player
         let isNightTime = true; // Game starts at night
         let dayNightCounter = 1; // Game starts on night 1
 
@@ -1516,10 +1520,12 @@ Steph</textarea>
 
         function initializePlayerRoles() {
             playerRoles = {};
-        playerReminders = {};
+            playerReminders = {};
+            playerDeathState = {};
             players.forEach(player => {
                 playerRoles[player] = null;
                 playerReminders[player] = [];
+                playerDeathState[player] = 'alive'; // 'alive' or 'dead'
             });
         }
 
@@ -1620,6 +1626,11 @@ Steph</textarea>
                 playerReminders = { ...playerReminders, ...message.playerReminders };
             }
 
+            // Update death state from more recent death_update messages
+            if (message.type === 'death_update' && message.gameId === currentGameId && message.playerDeathState) {
+                playerDeathState = { ...playerDeathState, ...message.playerDeathState };
+            }
+
             // Reconstruct phase state from daybreak/nightfall messages
             if ((message.type === 'daybreak' || message.type === 'nightfall') && message.gameId === currentGameId) {
                 isNightTime = (message.type === 'nightfall');
@@ -1660,6 +1671,7 @@ Steph</textarea>
                 script: currentScript,
                 playerRoles: playerRoles,
                 playerReminders: playerReminders,
+                playerDeathState: playerDeathState,
                 storyteller: currentUser,
                 timestamp: Date.now()
             };
@@ -1729,6 +1741,10 @@ Steph</textarea>
                         playerReminders = message.playerReminders;
                     }
 
+                    if (message.playerDeathState) {
+                        playerDeathState = message.playerDeathState;
+                    }
+
                     // Look up the full script object from the script name/id
                     if (typeof message.script === 'string') {
                         // If it's just a name, find the script by name
@@ -1759,6 +1775,12 @@ Steph</textarea>
                 // Update local reminder assignments
                 if (message.playerReminders) {
                     playerReminders = message.playerReminders;
+                    updatePlayersList();
+                }
+            } else if (message.type === 'death_update' && message.gameId === currentGameId) {
+                // Update local death state
+                if (message.playerDeathState) {
+                    playerDeathState = message.playerDeathState;
                     updatePlayersList();
                 }
             } else if (message.type === 'daybreak' && message.gameId === currentGameId) {
@@ -1847,11 +1869,18 @@ Steph</textarea>
           players.forEach(player => {
             const playerCard = document.createElement('div');
                 playerCard.className = 'player-card';
-                // playerCard.textContent = player; // already added in nameDiv below
+
+                // Add death styling if player is dead
+                const isDead = playerDeathState[player] === 'dead';
+                if (isDead) {
+                    playerCard.style.opacity = '0.5';
+                    playerCard.style.textDecoration = 'line-through';
+                }
 
                 const nameDiv = document.createElement('div');
                 nameDiv.className = 'player-name';
                 nameDiv.textContent = player;
+                nameDiv.textContent = isDead ? `💀 ${player} 💀` : player;
                 playerCard.appendChild(nameDiv);
 
                 // Show role if storyteller
@@ -1938,6 +1967,7 @@ Steph</textarea>
             const modal = document.getElementById('roleAssignmentModal');
             const title = document.getElementById('roleAssignmentTitle');
             const roleSelect = document.getElementById('roleSelect');
+            const deathToggleBtn = document.getElementById('deathToggleBtn');
 
             title.textContent = `Assign Role to ${playerName}`;
 
@@ -1986,6 +2016,13 @@ Steph</textarea>
             if (playerRoles[playerName]) {
                 roleSelect.value = playerRoles[playerName];
             }
+
+            // Update death toggle button text based on current state
+            const isAlive = playerDeathState[playerName] !== 'dead';
+            deathToggleBtn.textContent = isAlive ? '💀 Dies' : '⚡ Reborn';
+            deathToggleBtn.style.background = isAlive ? 
+                'linear-gradient(45deg, #9b59b6, #8e44ad)' : 
+                'linear-gradient(45deg, #26de81, #20bf6b)';
 
             modal.classList.remove('hidden');
         }
@@ -3478,6 +3515,30 @@ Steph</textarea>
             closeRoleAssignmentModal();
         }
 
+        function togglePlayerDeath() {
+            if (!selectedPlayerForRole) return;
+
+            const currentState = playerDeathState[selectedPlayerForRole] || 'alive';
+            const newState = currentState === 'alive' ? 'dead' : 'alive';
+
+            // Update local state
+            playerDeathState[selectedPlayerForRole] = newState;
+
+            // Broadcast death state update
+            pubnub.publish({
+                channel: currentRoom,
+                message: {
+                    gameId: currentGameId,
+                    type: 'death_update',
+                    playerDeathState: playerDeathState,
+                    timestamp: Date.now()
+                }
+            });
+
+            updatePlayersList();
+            closeRoleAssignmentModal();
+        }
+
         function showRemoveReminderModal() {
             if (!selectedPlayerForRole) return;
 
@@ -3800,7 +3861,13 @@ Remove reminder brings up a model with a combo box with all the current reminder
 
      F: Look at this code. Pay attention to the instructions for CLAUDE. I am seeing cases where 1. the storyteller hits the "Distribute Roles" button, but 2. a player is getting the console.log output: Message rejected - no matching condition. and no message is displayed for them, even though on the StoryTeller's side, it claims that it sent the message to that Player.
 
-     
+     F: Look at this code. Pay attention to the instructions for CLAUDE. I want a way to for the storyteller to mark players as being dead, and when a player is marked as dead, it should be reflected on the screens of all the connected players. I will let you decide whether it is better to do it by having all messages carry the lists of "living" and "dead" players (and then have the message processing code update the UI accordingly), or to have a separate message that signals a death. The point is, the UI should be that the StoryTeller can click a player, and in the modal that currently controls reminder tokens and roles, there should be an extra button, where for living players, this new button says "dies" (and when clicked, signals to all player UI's that the selected player is now dead), and for dead players, the new button says "reborn" (and when clicked, signals to all player UI's that the selected player is living by removing the death marker).     
+
+     F: Can you show me this as a diff, like I asked in the CLAUDE instructions at the top of the file?
+
+     F: uh why did you get rid of the roleSelect button in your diff?
+
+     F: In addition to the struck-out text (which I like), can you also make it so that players who are dead have a skull emoji on either side of their name? (and obviously when they are reborn the skulls go away)
 
      TODO: while this does re-establish the set of players, it does not load up past messages that we have sent. Also, we could easily include the player assignments in the pubnub messages for later retrieval in these situations.
 
