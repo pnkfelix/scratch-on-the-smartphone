@@ -467,7 +467,6 @@
     <div class="container">
         <div class="header">
             <h1 class="title">🩸 Scratch on the Smartphone</h1>
-            <p>Simple Messaging App</p>
         </div>
 
         <!-- Setup Screen -->
@@ -604,10 +603,6 @@ Steph</textarea>
 
         <!-- Game Screen -->
         <div id="gameScreen" class="card hidden">
-            <div id="connectionStatus" class="status disconnected">
-                Connecting...
-            </div>
-
             <div class="input-group">
                 <label>Script: <span id="displayScript"></span> | GameId: <span id="displayGameId" onclick="editGameId()" style="cursor: pointer; text-decoration: underline; color: #26de81;"></span> | <span id="displayTime"></span></label>
             </div>
@@ -1655,16 +1650,18 @@ Steph</textarea>
         }
 
         function handleConnectionStatus(statusEvent) {
-            const statusEl = document.getElementById('connectionStatus');
+            const gameIdEl = document.getElementById('displayGameId');
 
             if (statusEvent.category === 'PNConnectedCategory') {
                 isConnected = true;
-                statusEl.textContent = 'Connected';
-                statusEl.className = 'status connected';
+                if (gameIdEl) {
+                    gameIdEl.style.color = '#26de81'; // Green when connected
+                }
             } else if (statusEvent.category === 'PNNetworkDownCategory') {
                 isConnected = false;
-                statusEl.textContent = 'Connection lost';
-                statusEl.className = 'status disconnected';
+                if (gameIdEl) {
+                    gameIdEl.style.color = '#ff6b6b'; // Red when disconnected
+                }
             }
 
             // After connection is established and history is processed, update UI for reconnecting storytellers
@@ -1871,7 +1868,10 @@ Steph</textarea>
         function switchToGameScreen() {
             document.getElementById('setupScreen').classList.add('hidden');
             document.getElementById('gameScreen').classList.remove('hidden');
-            document.getElementById('displayGameId').textContent = currentGameId || 'Not set';
+            const gameIdEl = document.getElementById('displayGameId');
+            gameIdEl.textContent = currentGameId || 'Not set';
+            gameIdEl.style.color = isConnected ? '#26de81' : '#ff6b6b'; // Set initial color based on connection state
+
             document.getElementById('displayTime').textContent = 'Night 1';
 
             if (currentScript) {
