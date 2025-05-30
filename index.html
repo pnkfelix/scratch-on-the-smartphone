@@ -613,6 +613,7 @@ Steph</textarea>
             </div>
 
             <button id="scriptViewerToggle" onclick="toggleScriptViewer()">📜 View Script</button>
+            <span id="gameStateDisplay" style="margin-left: 15px; font-size: 0.9rem; opacity: 0.8;"></span>
 
             <div class="players-list" id="playersList"></div>
 
@@ -1858,6 +1859,25 @@ Steph</textarea>
             updateStorytellerWorkflowUI();
         }
 
+ 
+        function getLivingPlayerCount() {
+            return players.filter(player => playerDeathState[player] !== 'dead').length;
+        }
+
+        function getMajorityVotes() {
+            const livingCount = getLivingPlayerCount();
+            return Math.ceil(livingCount / 2);
+        }
+
+        function updateGameStateDisplay() {
+            const livingCount = getLivingPlayerCount();
+            const majorityVotes = getMajorityVotes();
+            const gameStateEl = document.getElementById('gameStateDisplay');
+            if (gameStateEl) {
+                gameStateEl.textContent = `Living: ${livingCount}; Majority: ${majorityVotes}`;
+            }
+        }
+
         function updatePlayersList() {
             const playersList = document.getElementById('playersList');
             playersList.innerHTML = '';
@@ -1937,6 +1957,8 @@ Steph</textarea>
                     targetSelect.appendChild(option);
                 });
             }
+
+            updateGameStateDisplay();
         }
 
         function populateTargetPlayerDropdown() {
@@ -3868,6 +3890,12 @@ Remove reminder brings up a model with a combo box with all the current reminder
      F: uh why did you get rid of the roleSelect button in your diff?
 
      F: In addition to the struck-out text (which I like), can you also make it so that players who are dead have a skull emoji on either side of their name? (and obviously when they are reborn the skulls go away)
+
+     F: next to the view script button, can you print out these pieces of game state: 1. number of living players, 2. votes needed to meet majority of living players. So for example, in an 8 player game with 5 living players, you would now also have the text "living: 5; majority: 3." Note that the storyteller is not a player in this calculation.
+
+     F: Wait, are you sure about that majority calculation? for 5 living, the majority is 3. But for 4 living, the majority is only 2.
+
+     F: No, that's not what I asked for.
 
      TODO: while this does re-establish the set of players, it does not load up past messages that we have sent. Also, we could easily include the player assignments in the pubnub messages for later retrieval in these situations.
 
