@@ -2532,6 +2532,24 @@ Steph</textarea>
             messageEl.appendChild(headerEl);
             messageEl.appendChild(contentEl);
 
+            // Insert message in chronological order by timestamp
+            const existingMessages = messagesContainer.querySelectorAll('.message');
+            let insertPosition = null;
+            
+            for (let i = 0; i < existingMessages.length; i++) {
+                const existingTimestamp = parseInt(existingMessages[i].dataset.timestamp);
+                if (message.timestamp < existingTimestamp) {
+                    insertPosition = existingMessages[i];
+                    break;
+                }
+            }
+            
+            if (insertPosition) {
+                messagesContainer.insertBefore(messageEl, insertPosition);
+            } else {
+                messagesContainer.appendChild(messageEl);
+            }
+	    
             // Add response UI for prompts
             if (message.messageType === 'prompt' && message.to === currentUser && userType === 'player') {
                 const responseData = message.templateData;
@@ -2541,7 +2559,6 @@ Steph</textarea>
                 }
             }
 
-            messagesContainer.appendChild(messageEl);
             messagesContainer.scrollTop = messagesContainer.scrollHeight;
         }
 
@@ -3761,6 +3778,11 @@ Remove reminder brings up a model with a combo box with all the current reminder
 
      F: Look at this code. Pay attention to the instructions for CLAUDE. Currently, the night action for a player with more than one template is awkward for a story teller, because they need to select the template by typing a number on their screen. Can you make the interface something where I hit the template with my finger instead?
 
+     F: Look at this code. Pay attention to the instructions for CLAUDE. Can you make sure that the messages are sorted by timestamp (with most recent at the bottom)? I have seen weird behaviors where players who connect late get the messages in orders that don't match when the storyteller sent them, and I think that is because we are just adding things in the order that we receive them from pubnub, but that does not always correspond to the original order they were sent in (I think).
+
+     F: And the message will still be inserted eagerly when someone sends it, before receiving confirmation of it from pubnub?
+
+     F: Who chooses the timestamp that is attached to a message when it is sent? Is the timestamp chosen by the pubnub server, or is it chosen by the javascript vm that is sending the message?
 
      TODO: while this does re-establish the set of players, it does not load up past messages that we have sent. Also, we could easily include the player assignments in the pubnub messages for later retrieval in these situations.
 
