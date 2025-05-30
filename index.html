@@ -248,15 +248,15 @@
         }
 
         .player-card .role-outsider {
-            color: #9e9e9e;
+            color: #cccccc;
         }
 
         .player-card .role-minion {
-            color: #ff6b6b;
+            color: #ff7755;
         }
 
         .player-card .role-demon {
-            color: #8b0000;
+            color: #ff4444;
         }
 
         .player-card.storyteller-view:hover {
@@ -3689,6 +3689,12 @@ Remove reminder brings up a model with a combo box with all the current reminder
      (At this point in development I merged in a collection of hand-written fixes from Rob)
 
      F: Look at this code. Pay attention to the instructions for CLAUDE. I want to rename the page from "Blood on the Clocktower" to "Scratch on the Smartphone". Can you do that?
+
+     F: Look at this code. Pay attention to the instructions for CLAUDE. When the demon is assigned, the way its rendered in the player list is very hard to see. (I think this only affects the Storyteller's view.) Outsiders are also not so easy to see. Image attached. Please revise the color scheme to make the Demon and Outsiders easier for my eyes to see.
+
+     F: That is somewhat close to the minion color. Maybe make the minion a little bit more orange so that the demon remains very red?
+
+     F: No that is too orange
 
 
      TODO: while this does re-establish the set of players, it does not load up past messages that we have sent. Also, we could easily include the player assignments in the pubnub messages for later retrieval in these situations.
