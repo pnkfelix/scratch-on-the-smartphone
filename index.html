@@ -639,9 +639,18 @@ Steph</textarea>
                 </div>
 
                 <div class="template-buttons">
-                    <button class="template-btn" onclick="useNightActionTemplate()">Night Action</button>
-                    <button class="template-btn" onclick="distributeAllRoles()">Distribute Roles</button>
-                    <button class="template-btn" onclick="distributeMinionAndDemonInfo()">Distribute Minion/Demon Info</button>
+                    <div id="distributeRolesPhase" class="template-buttons" style="display: none;">
+                        <button class="template-btn" onclick="distributeAllRoles()">Distribute Roles</button>
+                    </div>
+                    
+                    <div id="minionDemonPhase" class="template-buttons" style="display: none;">
+                        <button class="template-btn" onclick="distributeMinionAndDemonInfo()">Distribute Minion/Demon Info</button>
+                        <button class="template-btn" onclick="skipMinionDemonInfo()" style="background: #666;">Skip Minion/Demon Info</button>
+                    </div>
+                    
+                    <div id="nightActionPhase" class="template-buttons" style="display: none;">
+                        <button class="template-btn" onclick="useNightActionTemplate()">Night Action</button>
+                    </div>
                 </div>
 
                 <div style="margin-top: 15px;">
@@ -755,6 +764,10 @@ Steph</textarea>
         let playerReminders = {}; // Track reminders for each player
         let isNightTime = true; // Game starts at night
         let dayNightCounter = 1; // Game starts on night 1
+
+        // Track storyteller workflow state
+        let storytellerWorkflowState = 'distribute_roles'; // 'distribute_roles', 'minion_demon_info', 'night_action'
+
 
         // Embedded script definitions
         const ROLES = {
@@ -1766,9 +1779,33 @@ Steph</textarea>
 
             if (userType === 'storyteller') {
                 document.getElementById('storytellerControls').classList.remove('hidden');
+
+                // Initialize workflow state
+                updateStorytellerWorkflowUI();            
             }
 
             updatePlayersList();
+        }
+
+        function updateStorytellerWorkflowUI() {
+            // Hide all phases first
+            document.getElementById('distributeRolesPhase').style.display = 'none';
+            document.getElementById('minionDemonPhase').style.display = 'none';
+            document.getElementById('nightActionPhase').style.display = 'none';
+            
+            // Show current phase
+            if (storytellerWorkflowState === 'distribute_roles') {
+                document.getElementById('distributeRolesPhase').style.display = 'block';
+            } else if (storytellerWorkflowState === 'minion_demon_info') {
+                document.getElementById('minionDemonPhase').style.display = 'block';
+            } else if (storytellerWorkflowState === 'night_action') {
+                document.getElementById('nightActionPhase').style.display = 'block';
+            }
+        }
+        
+        function skipMinionDemonInfo() {
+            storytellerWorkflowState = 'night_action';
+            updateStorytellerWorkflowUI();
         }
 
         function updatePlayersList() {
@@ -3155,6 +3192,8 @@ Steph</textarea>
 
             if (sentCount > 0) {
                 alert(`Sent role assignments to ${sentCount} players`);
+                storytellerWorkflowState = 'minion_demon_info';
+                updateStorytellerWorkflowUI();
             } else {
                 alert('No roles to distribute');
             }
@@ -3237,6 +3276,8 @@ Steph</textarea>
 
             if (sentCount > 0) {
                 alert(`Sent minion/demon info to ${sentCount} players`);
+                storytellerWorkflowState = 'night_action';
+                updateStorytellerWorkflowUI();
             } else {
                 alert('No minion/demon info to distribute');
             }
@@ -3696,6 +3737,7 @@ Remove reminder brings up a model with a combo box with all the current reminder
 
      F: No that is too orange
 
+     F: Look at this code. Pay attention to the instructions for CLAUDE. The interface is a little too crowded right now. We are going to work on resolving that in small pieces. First: Instead of showing all three of the "Night Action", "Distribute Roles", and "Distribute Minion/Demon Info" buttons at once, I want it to: (A.) first just show the "Distribute Roles" button. Then, after that button is hit, (B.) only show two buttons: "Distribute Minion/Demon Info" and "Skip Minion/Demon Info". (The skip button does nothing except go to the next state, described next.) Then, after either of those buttons is hit, then (C.) only show the "Night Action" button. The idea is that the story teller only has one or two of those buttons to hit, and usually it will just be one.
 
      TODO: while this does re-establish the set of players, it does not load up past messages that we have sent. Also, we could easily include the player assignments in the pubnub messages for later retrieval in these situations.
 
