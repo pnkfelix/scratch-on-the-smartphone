@@ -744,6 +744,20 @@ Steph</textarea>
         </div>
     </div>
 
+
+    <!-- Template Selection Modal -->
+    <div id="templateSelectionModal" class="role-assignment-modal hidden">
+        <div class="role-assignment-content">
+            <h3 id="templateSelectionTitle">Choose Template</h3>
+            <div id="templateSelectionContent" style="max-height: 400px; overflow-y: auto;">
+                <!-- Template buttons will be inserted here -->
+            </div>
+            <div style="margin-top: 15px;">
+                <button onclick="closeTemplateSelectionModal()" style="width: 100%; background: #666;">Cancel</button>
+            </div>
+        </div>
+    </div>
+
     <script>
         // PubNub Configuration - Replace with your keys
         const PUBNUB_PUBLISH_KEY = 'demo';
@@ -2101,27 +2115,33 @@ Steph</textarea>
         }
 
         function showTemplateSelectionModal(templates, targetPlayer, role) {
-            // Create a simple selection using confirm dialogs for now
-            // In a more sophisticated UI, this could be a proper modal
-            let templateChoices = templates.map((template, index) => {
-                const displayText = template[0]; // First string is what storyteller sees
-                return `${index + 1}. ${displayText}`;
-            }).join('\n');
+            const modal = document.getElementById('templateSelectionModal');
+            const title = document.getElementById('templateSelectionTitle');
+            const content = document.getElementById('templateSelectionContent');
 
-            const choice = prompt(`Choose a template for ${targetPlayer} (${role.name}):\n\n${templateChoices}\n\nEnter number (1-${templates.length}):`);
+            title.textContent = `Choose template for ${targetPlayer} (${role.name})`;
+            content.innerHTML = '';
 
-            if (choice === null) {
-                return; // User cancelled
-            }
+            templates.forEach((template, index) => {
+                const button = document.createElement('button');
+                button.textContent = template[0]; // First string is what storyteller sees
+                button.style.width = '100%';
+                button.style.margin = '5px 0';
+                button.style.padding = '12px';
+                button.style.fontSize = '14px';
+                button.style.textAlign = 'left';
+                button.onclick = () => {
+                    closeTemplateSelectionModal();
+                    processNightActionTemplate(template, targetPlayer, role);
+                };
+                content.appendChild(button);
+            });
 
-            const templateIndex = parseInt(choice) - 1;
-            if (isNaN(templateIndex) || templateIndex < 0 || templateIndex >= templates.length) {
-                alert('Invalid choice. Please try again.');
-                return;
-            }
+            modal.classList.remove('hidden');
+        }
 
-            const selectedTemplate = templates[templateIndex];
-            processNightActionTemplate(selectedTemplate, targetPlayer, role);
+        function closeTemplateSelectionModal() {
+            document.getElementById('templateSelectionModal').classList.add('hidden');
         }
 
         function processNightActionTemplate(template, targetPlayer, role) {
@@ -3738,6 +3758,9 @@ Remove reminder brings up a model with a combo box with all the current reminder
      F: No that is too orange
 
      F: Look at this code. Pay attention to the instructions for CLAUDE. The interface is a little too crowded right now. We are going to work on resolving that in small pieces. First: Instead of showing all three of the "Night Action", "Distribute Roles", and "Distribute Minion/Demon Info" buttons at once, I want it to: (A.) first just show the "Distribute Roles" button. Then, after that button is hit, (B.) only show two buttons: "Distribute Minion/Demon Info" and "Skip Minion/Demon Info". (The skip button does nothing except go to the next state, described next.) Then, after either of those buttons is hit, then (C.) only show the "Night Action" button. The idea is that the story teller only has one or two of those buttons to hit, and usually it will just be one.
+
+     F: Look at this code. Pay attention to the instructions for CLAUDE. Currently, the night action for a player with more than one template is awkward for a story teller, because they need to select the template by typing a number on their screen. Can you make the interface something where I hit the template with my finger instead?
+
 
      TODO: while this does re-establish the set of players, it does not load up past messages that we have sent. Also, we could easily include the player assignments in the pubnub messages for later retrieval in these situations.
 
