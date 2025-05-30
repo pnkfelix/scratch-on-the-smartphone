@@ -543,7 +543,7 @@ Steph</textarea>
         <div id="roleSelectionScreen" class="card hidden">
             <h2>Select Roles for Game</h2>
             <div class="input-group">
-                <label>Script: <span id="roleSelectionScript"></span> | Players: <span id="roleSelectionPlayerCount"></span></label>
+                <label>Script: <span id="roleSelectionScript"></span> | Players: <span id="roleSelectionPlayerCount"></span> | GameId: <span id="roleSelectionGameId"></span></label>
             </div>
 
             <div id="distributionInfo" class="card" style="background: rgba(74, 144, 226, 0.2); margin-bottom: 20px;">
@@ -609,7 +609,7 @@ Steph</textarea>
             </div>
 
             <div class="input-group">
-                <label>Script: <span id="displayScript"></span> | Room: <span id="displayRoom"></span> | <span id="displayTime"></span></label>
+                <label>Script: <span id="displayScript"></span> | GameId: <span id="displayGameId" onclick="editGameId()" style="cursor: pointer; text-decoration: underline; color: #26de81;"></span> | <span id="displayTime"></span></label>
             </div>
 
             <button id="scriptViewerToggle" onclick="toggleScriptViewer()">📜 View Script</button>
@@ -758,6 +758,23 @@ Steph</textarea>
             </div>
             <div style="margin-top: 15px;">
                 <button onclick="closeTemplateSelectionModal()" style="width: 100%; background: #666;">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+
+
+    <!-- GameId Edit Modal -->
+    <div id="gameIdEditModal" class="role-assignment-modal hidden">
+        <div class="role-assignment-content">
+            <h3>Change Game ID</h3>
+            <div class="input-group">
+                <label for="newGameId">Game ID:</label>
+                <input type="text" id="newGameId" placeholder="Enter new game ID...">
+            </div>
+            <div style="display: flex; gap: 10px; margin-top: 15px;">
+                <button onclick="confirmGameIdChange()" style="flex: 1;">Change Game ID</button>
+                <button onclick="closeGameIdEditModal()" style="flex: 1; background: #666;">Cancel</button>
             </div>
         </div>
     </div>
@@ -1549,16 +1566,15 @@ Steph</textarea>
                     // When successfully connected, fetch message history
                     if (statusEvent.category === 'PNConnectedCategory') {
                         fetchMessageHistory();
+
+                        // If storyteller, send game setup immediately when connected
+                        if (userType === 'storyteller') {
+                            sendGameSetup();
+                        }
                     }
                 }
             });
 
-            // If storyteller, send game setup
-            if (userType === 'storyteller') {
-                setTimeout(() => {
-                    sendGameSetup();
-                }, 1000);
-            }
         }
 
         function fetchMessageHistory() {
@@ -1722,8 +1738,32 @@ Steph</textarea>
                         currentGameId = message.gameId;
                         mostRecentSetupTimestamp = message.timestamp;
                         console.log('Player adopted most recent gameId:', currentGameId);
+
+                        // Update the display
+                        const gameIdEl = document.getElementById('displayGameId');
+                        if (gameIdEl) {
+                            gameIdEl.textContent = currentGameId;
+                        }
+
                         // Process this setup message
                         players = message.players;
+
+                        
+                        // Process script information
+                        if (message.script) {
+                            if (typeof message.script === 'string') {
+                                currentScript = Object.values(EMBEDDED_SCRIPTS).find(s => s.name === message.script) ||
+                                               EMBEDDED_SCRIPTS[message.script];
+                            } else {
+                                currentScript = message.script;
+                            }
+                            
+                            // Update script display if we're on the game screen
+                            const scriptEl = document.getElementById('displayScript');
+                            if (scriptEl && currentScript) {
+                                scriptEl.textContent = currentScript.name;
+                            }
+                        }
                     }
                     // If this isn't the most recent, ignore it
                     else {
@@ -1754,6 +1794,13 @@ Steph</textarea>
                     } else {
                         // If it's already an object, use it directly
                         currentScript = message.script;
+                    }
+                    
+                    // Update script display if we're on the game screen
+                    const scriptEl = document.getElementById('displayScript');
+                    if (scriptEl && currentScript) {
+                        scriptEl.textContent = currentScript.name;
+                        updateScriptViewer(); // Also update the script viewer if it's open
                     }
 
                     updatePlayersList();
@@ -1793,6 +1840,11 @@ Steph</textarea>
 		if (userType === 'player' && !currentGameId && message.gameId) {
 		    currentGameId = message.gameId;
 		    console.log('Player adopted gameId from message:', currentGameId);
+		    // Update the display
+		    const gameIdEl = document.getElementById('displayGameId');
+		    if (gameIdEl) {
+		        gameIdEl.textContent = currentGameId;
+		    }
 		}
      
 		// Now check if we should process this message
@@ -1819,13 +1871,16 @@ Steph</textarea>
         function switchToGameScreen() {
             document.getElementById('setupScreen').classList.add('hidden');
             document.getElementById('gameScreen').classList.remove('hidden');
-
-            document.getElementById('displayRoom').textContent = currentRoom;
+            document.getElementById('displayGameId').textContent = currentGameId || 'Not set';
             document.getElementById('displayTime').textContent = 'Night 1';
 
             if (currentScript) {
                 document.getElementById('displayScript').textContent = currentScript.name;
                 updateScriptViewer();
+            } else if (userType === 'player') {
+                document.getElementById('displayScript').textContent = 'Waiting for game info...';
+            } else {
+                document.getElementById('displayScript').textContent = 'No script selected';
             }
 
             if (userType === 'storyteller') {
@@ -2933,6 +2988,7 @@ Steph</textarea>
 
             document.getElementById('roleSelectionScript').textContent = currentScript.name;
             document.getElementById('roleSelectionPlayerCount').textContent = players.length;
+            document.getElementById('roleSelectionGameId').textContent = currentGameId || 'Not set';
 
             // Initialize PubNub connection and send game setup so players can join during role selection
             currentUser = 'Storyteller';
@@ -3627,6 +3683,39 @@ Steph</textarea>
             closeRoleAssignmentModal();
         }
 
+        function editGameId() {
+            const modal = document.getElementById('gameIdEditModal');
+            const input = document.getElementById('newGameId');
+            
+            input.value = currentGameId || '';
+            modal.classList.remove('hidden');
+            input.focus();
+        }
+
+        function closeGameIdEditModal() {
+            document.getElementById('gameIdEditModal').classList.add('hidden');
+        }
+
+        function confirmGameIdChange() {
+            const input = document.getElementById('newGameId');
+            const newGameId = input.value.trim();
+            
+            if (!newGameId) {
+                alert('Please enter a valid game ID');
+                return;
+            }
+            
+            currentGameId = newGameId;
+            document.getElementById('displayGameId').textContent = currentGameId;
+            
+            // If we're a storyteller, broadcast the new game state
+            if (userType === 'storyteller') {
+                sendGameSetup();
+            }
+            
+            closeGameIdEditModal();
+        }
+
     </script>
 </body>
 </html>
@@ -3896,6 +3985,18 @@ Remove reminder brings up a model with a combo box with all the current reminder
      F: Wait, are you sure about that majority calculation? for 5 living, the majority is 3. But for 4 living, the majority is only 2.
 
      F: No, that's not what I asked for.
+
+     F: Look at this code. Pay attention to the instructions for CLAUDE. 1. Change the display so that the part at the top that says "Room: XXX" instead shows "GameId: XXX", so that I can better debug what is going on with the current game ID. 2. Make the game id something that the players can click and change, in order for us to resolve mismatches that might accidentally arise in the field. 3. Show the gameId on the role selection screen for the storyteller (since I believe it should be established by that point).
+
+     F: It doesn't seem like the UI is updating for the player, even though it is getting messages from the storyteller.
+
+     F: Hmm. The "View Script" button for a player now says "No script loaded", even though messages are coming through. Let me show you what my current code looks like: (...)
+
+     F: I'm still seeing "No script loaded" when a player hits "View script".
+
+     F: When the storyteller first hits "Start Game", and thus goes to the role selection screen, does that send out any timestamped messages for the players that they can use to establish the gameId, the script, and the current set of players?
+
+     F: But there's a setTimeout there around the sendGameSetup. Does that delay the action?
 
      TODO: while this does re-establish the set of players, it does not load up past messages that we have sent. Also, we could easily include the player assignments in the pubnub messages for later retrieval in these situations.
 
