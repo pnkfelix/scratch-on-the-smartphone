@@ -1498,6 +1498,9 @@ Steph</textarea>
                     alert('Please check the room and select your name first');
                     return;
                 }
+
+                // Players should NOT generate their own gameId - they'll adopt it  from setup messages.
+                currentGameId = null;
             }
 
             initializePubNub();
@@ -1507,8 +1510,6 @@ Steph</textarea>
             } else if (userType === 'storyteller' && gameMode === 'reconnect') {
                 // For reconnect, we'll determine gameId from message history
                 currentGameId = null; // Will be set when we process history
-            } else {
-               // Players will get gameId from storyteller's setup message
             }
             switchToGameScreen();
         }
@@ -1699,14 +1700,24 @@ Steph</textarea>
 
             if (message.type === 'game_setup') {
 
-                // For players, adopt the most recent gameId. For storytellers, only process matching gameId
-                if (userType === 'player' || message.gameId === currentGameId) {
-                    // Update our current game ID if we don't have one or this is newer
+
+                // For players, always consider all game_setup messages to find the most recent
+                // For storytellers, only process messages that match their current game
+                if (userType === 'player') {
+                    // Players should adopt the most recent game setup, regardless of current gameId
                     if (!currentGameId || message.timestamp > mostRecentSetupTimestamp) {
                         currentGameId = message.gameId;
-                        console.log('Updated currentGameId to:', currentGameId);
+                        mostRecentSetupTimestamp = message.timestamp;
+                        console.log('Player adopted most recent gameId:', currentGameId);
+                        // Process this setup message
+                        players = message.players;
                     }
-
+                    // If this isn't the most recent, ignore it
+                    else {
+                        return;
+                    }
+                } else if (message.gameId === currentGameId) {
+                    // Storytellers only process their own game's setup messages
                     mostRecentSetupTimestamp = message.timestamp;
                     players = message.players;
 
@@ -1754,30 +1765,33 @@ Steph</textarea>
                 setDayPhase();
             } else if (message.type === 'nightfall' && message.gameId === currentGameId) {
                 setNightPhase();
-            } else if (message.type === 'private_message' &&
-                       (message.gameId === currentGameId || (userType === 'player' && !currentGameId))) {
+            } else if (message.type === 'private_message') {
+		// For players without gameId, adopt it from any valid message
+		if (userType === 'player' && !currentGameId && message.gameId) {
+		    currentGameId = message.gameId;
+		    console.log('Player adopted gameId from message:', currentGameId);
+		}
+     
+		// Now check if we should process this message
+		if (message.gameId === currentGameId) {
 
-              console.log('Processing private message:', message);
+		    console.log('Processing private message:', message);
 
-              // If player doesn't have gameId yet, adopt it from this message
-              if (userType === 'player' && !currentGameId && message.gameId) {
-                currentGameId = message.gameId;
-                console.log('Player adopted gameId from message:', currentGameId);
-              }
 
-                // Check if this is an echo of our own message
-                if (message.from === currentUser && sentMessages.has(message.timestamp)) {
-                    // This is an echo - mark the local message as delivered
-                    markMessageDelivered(message.timestamp);
-                    return; // Don't display duplicate
-                }
+                    // Check if this is an echo of our own message
+                    if (message.from === currentUser && sentMessages.has(message.timestamp)) {
+			// This is an echo - mark the local message as delivered
+			markMessageDelivered(message.timestamp);
+			return; // Don't display duplicate
+                    }
 
-                // If it's not our message or not in sent messages, display normally
-                displayMessage(message);
-            } else {
-                console.log('Message rejected - no matching condition');
+                    // If it's not our message or not in sent messages, display normally
+                    displayMessage(message);
+		} else {
+		    console.log('Message rejected - gameId mismatch:', message.gameId, 'vs', currentGameId);
+		}
             }
-        }
+	}
 
         function switchToGameScreen() {
             document.getElementById('setupScreen').classList.add('hidden');
@@ -3783,6 +3797,10 @@ Remove reminder brings up a model with a combo box with all the current reminder
      F: And the message will still be inserted eagerly when someone sends it, before receiving confirmation of it from pubnub?
 
      F: Who chooses the timestamp that is attached to a message when it is sent? Is the timestamp chosen by the pubnub server, or is it chosen by the javascript vm that is sending the message?
+
+     F: Look at this code. Pay attention to the instructions for CLAUDE. I am seeing cases where 1. the storyteller hits the "Distribute Roles" button, but 2. a player is getting the console.log output: Message rejected - no matching condition. and no message is displayed for them, even though on the StoryTeller's side, it claims that it sent the message to that Player.
+
+     
 
      TODO: while this does re-establish the set of players, it does not load up past messages that we have sent. Also, we could easily include the player assignments in the pubnub messages for later retrieval in these situations.
 
