@@ -1593,11 +1593,20 @@ Steph</textarea>
                     // Populate target player dropdown for new games
                     const targetSelect = document.getElementById('targetPlayer');
                     targetSelect.innerHTML = '<option value="">Select player...</option>';
-                    players.forEach(player => {
-                        const option = document.createElement('option');
-                        option.value = player;
-                        option.textContent = player;
-                        targetSelect.appendChild(option);
+                    const orderedPlayers = getOrderedPlayersForNight();
+                    orderedPlayers.forEach(player => {
+                        if (player === '-----') {
+                            const separator = document.createElement('option');
+                            separator.value = '';
+                            separator.textContent = '-----';
+                            separator.disabled = true;
+                            targetSelect.appendChild(separator);
+                        } else {
+			    const option = document.createElement('option');
+                            option.value = player;
+                            option.textContent = player;
+                            targetSelect.appendChild(option);
+			}
                     });
                 }
 
@@ -2100,26 +2109,94 @@ Steph</textarea>
                 // Update target player dropdown for storytellers
                 const targetSelect = document.getElementById('targetPlayer');
                 targetSelect.innerHTML = '<option value="">Select player...</option>';
-                players.forEach(player => {
-                    const option = document.createElement('option');
-                    option.value = player;
-                    option.textContent = player;
-                    targetSelect.appendChild(option);
+                const orderedPlayers = getOrderedPlayersForNight();
+                orderedPlayers.forEach(player => {
+                    if (player === '-----') {
+                        const separator = document.createElement('option');
+                        separator.value = '';
+                        separator.textContent = '-----';
+                        separator.disabled = true;
+                        targetSelect.appendChild(separator);
+		    } else {
+			const option = document.createElement('option');
+			option.value = player;
+			option.textContent = player;
+			targetSelect.appendChild(option);
+		    }
                 });
             }
 
             updateGameStateDisplay();
         }
 
+        function getOrderedPlayersForNight() {
+            if (!currentScript || players.length === 0) {
+                return players; // Return original order if no script or players
+            }
+
+            // Determine which night order to use
+            const nightOrder = (dayNightCounter === 1) 
+                ? currentScript.first_night_order 
+                : currentScript.other_night_order;
+
+            if (!nightOrder || nightOrder.length === 0) {
+                return players; // Return original order if no night order defined
+            }
+
+            console.log('getOrderedPlayersForNight Night order for night', dayNightCounter, ':', nightOrder);
+            console.log('getOrderedPlayersForNight Player roles:', playerRoles);
+
+            const orderedPlayers = [];
+            const usedPlayers = new Set(); // Track which players we've already added
+
+            // First, add players in night order
+            nightOrder.forEach(roleId => {
+                // Find the player with this role
+                const playerWithRole = players.find(player => 
+                    playerRoles[player] === roleId && !usedPlayers.has(player)
+                );
+                if (playerWithRole) {
+                    console.log('getOrderedPlayersForNight Adding player', playerWithRole, 'for role', roleId);
+                    orderedPlayers.push(playerWithRole);
+                    usedPlayers.add(playerWithRole);
+                }
+            });
+
+            // Add any remaining players at the end
+            const hasRemainingPlayers = players.some(player => !usedPlayers.has(player));
+            if (hasRemainingPlayers && orderedPlayers.length > 0) {
+                orderedPlayers.push('-----'); // Separator
+            }
+
+            players.forEach(player => {
+                if (!usedPlayers.has(player)) {
+                    console.log('getOrderedPlayersForNight Adding remaining player', player);
+                    orderedPlayers.push(player);
+                }
+	    });
+
+            console.log('getOrderedPlayersForNight Final ordered players:', orderedPlayers);
+            return orderedPlayers;
+        }
+
         function populateTargetPlayerDropdown() {
             if (userType === 'storyteller' && players.length > 0) {
                 const targetSelect = document.getElementById('targetPlayer');
                 targetSelect.innerHTML = '<option value="">Select player...</option>';
-                players.forEach(player => {
-                    const option = document.createElement('option');
-                    option.value = player;
-                    option.textContent = player;
-                    targetSelect.appendChild(option);
+                const orderedPlayers = getOrderedPlayersForNight();
+                orderedPlayers.forEach(player => {
+                    if (player === '-----') {
+                        const separator = document.createElement('option');
+                        separator.value = '';
+                        separator.textContent = '-----';
+                        separator.disabled = true;
+                        targetSelect.appendChild(separator);
+                    } else {
+			const option = document.createElement('option');
+			option.value = player;
+			option.textContent = player;
+			targetSelect.appendChild(option);
+		    }
                 });
             }
         }
@@ -2528,8 +2605,13 @@ Steph</textarea>
                 if (field.type === 'player') {
                     fieldHtml = '<select id="field_' + field.name + '" style="margin: 0 5px; padding: 4px; border-radius: 4px; border: 1px solid #ccc;">';
                     fieldHtml += '<option value="">Select player...</option>';
-                    players.forEach(player => {
-                        fieldHtml += `<option value="${player}">${player}</option>`;
+                    const orderedPlayers = getOrderedPlayersForNight();
+                    orderedPlayers.forEach(player => {
+                        if (player === '-----') {
+                            fieldHtml += '<option value="" disabled>-----</option>';
+                        } else {
+                            fieldHtml += `<option value="${player}">${player}</option>`;
+			}
                     });
                     fieldHtml += '</select>';
 
@@ -2796,6 +2878,11 @@ Steph</textarea>
             dayNightCounter++;
             updatePhaseUI();
             updatePlayerMessageVisibility();
+
+            // Update player dropdown ordering for the new night
+            if (userType === 'storyteller') {
+                populateTargetPlayerDropdown();
+            }
         }
 
         function updatePhaseUI() {
@@ -2856,11 +2943,20 @@ Steph</textarea>
                 if (field.type === 'player') {
                     input = document.createElement('select');
                     input.innerHTML = '<option value="">Select player...</option>';
-                    players.forEach(player => {
-                        const option = document.createElement('option');
-                        option.value = player;
-                        option.textContent = player;
-                        input.appendChild(option);
+                    const orderedPlayers = getOrderedPlayersForNight();
+                    orderedPlayers.forEach(player => {
+                        if (player === '-----') {
+                            const separator = document.createElement('option');
+                            separator.value = '';
+                            separator.textContent = '-----';
+                            separator.disabled = true;
+                            input.appendChild(separator);
+                        } else {
+                            const option = document.createElement('option');
+                            option.value = player;
+                            option.textContent = player;
+                            input.appendChild(option);
+			}
                     });
                 } else {
                     input = document.createElement('input');
@@ -3312,12 +3408,21 @@ Steph</textarea>
 
             // Populate target player dropdown for new games
             const targetSelect = document.getElementById('targetPlayer');
+            const orderedPlayers = getOrderedPlayersForNight();
             targetSelect.innerHTML = '<option value="">Select player...</option>';
-            players.forEach(player => {
-                const option = document.createElement('option');
-                option.value = player;
-                option.textContent = player;
-                targetSelect.appendChild(option);
+            orderedPlayers.forEach(player => {
+                if (player === '-----') {
+                    const separator = document.createElement('option');
+                    separator.value = '';
+                    separator.textContent = '-----';
+                    separator.disabled = true;
+                    targetSelect.appendChild(separator);
+		} else {
+                    const option = document.createElement('option');
+                    option.value = player;
+                    option.textContent = player;
+                    targetSelect.appendChild(option);
+		}
             });
 
             switchToGameScreen();
@@ -4116,6 +4221,22 @@ Remove reminder brings up a model with a combo box with all the current reminder
      F: I want it presented to me as a diff. It shouldn't be too long since these should just be lists of role ids.
 
      F: oh those should be removed from the night orders. (I took them out because I took out Spy, and they are too strong on a script without Spy.)
+
+     F: Look at this code. Pay attention to the instructions for CLAUDE. I want to adjust how the player list that is in the combo box works. In particular: On night 1, sort the players to match the first_night_order that is associated with the current script. (That is, look at the roles in the first_night_order; if a player has that role, then the combo box should show that player at that order in the combo box. If no player has the role, then don't worry about that role in terms of how to order the combo box.) Then on subsequent nights (i.e. nights 2 and beyond), use the other_night_order for the script. One last detail: when ordering the combo box, it is very important to make sure that every player is still in the combo box. So for all players that have a role that isn't on the current night order, just add them all to the end of the combo box.
+
+     F: I think something is wrong. The order I am seeing in the combo box for night one on Trouble Brewing shows the player who has Poisoner first (good), then the player who has Butler, then sometime after that is the player who has Investigator. But the first night order as defined in the script has them in the order poisoner, investigator, butler, so something must be wrong.
+
+     F: Okay. This might be fixed. Is there a way we could add a line, like the text "-----", into the combo box when we finish with the established night order and are just adding the remaining players, so that the storyteller can easily tell when they have taken care of everybody?
+
+     F: No, something is still wrong.  Look at this screen shot. The player order has Amanda, the Slayer, first, then Rob the Imp. But Pratik the Poisoner should be first in the list.
+
+     F: (pasted debug output)
+
+     F: joinGame and updatePlayersList are the only two cases I managed to identify where we are not using the ordered list. Still, they probably should, right? populateTargetPlayerDropdown is only called once, on the StoryTeller reconnection code (which is relatively untested).
+
+     F: Okay. This might be fixed now. The new problem: It doesn't seem like we are using the other_night_order on nights 2 and above.
+
+     F: I'm only seeing "Night order for night 1", not night 2, even though it is night 2. The dayNightCounter says 2.
 
      TODO: while this does re-establish the set of players, it does not load up past messages that we have sent. Also, we could easily include the player assignments in the pubnub messages for later retrieval in these situations.
 
