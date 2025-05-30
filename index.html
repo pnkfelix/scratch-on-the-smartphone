@@ -922,6 +922,37 @@ Steph</textarea>
                 firstNight: false,
                 otherNights: false,
             },
+            'noble': {
+                id: 'noble',
+                name: 'Noble',
+                team: 'townsfolk',
+                ability: 'You start knowing that 1 of 3 players is evil.',
+                firstNight: true,
+                otherNights: false,
+                nightActionTemplates: [['You learn that 1 of {player1}, {player2}, or {player3} is evil.']],
+            },
+            'knight': {
+                id: 'knight',
+                name: 'Knight',
+                team: 'townsfolk',
+                ability: 'You start knowing 2 players that are not the Demon.',
+                firstNight: true,
+                otherNights: false,
+                nightActionTemplates: [['You learn that {player1} and {player2} are not the Demon.']],
+            },
+            'philosopher': {
+                id: 'philosopher',
+                name: 'Philosopher',
+                team: 'townsfolk',
+                ability: 'Once per game, at night, choose a good character: you gain their ability. If this character is in play, they are drunk.',
+                firstNight: true,
+                otherNights: true,
+                nightActionTemplates: [
+                    ['Do you wish to use your once-per-game ability?', 'I choose {yesno}.'],
+                    ['Choose a good character to gain their ability.', 'I choose {good_role}.'],
+                ],
+            },
+
             'butler': {
                 id: 'butler',
                 name: 'Butler',
@@ -989,6 +1020,15 @@ Steph</textarea>
                 ability: 'There are extra Outsiders in play. [+2 Outsiders]',
                 firstNight: false,
                 otherNights: false,
+            },
+            'witch': {
+                id: 'witch',
+                name: 'Witch',
+                team: 'minion',
+                ability: 'Each night, choose a player: if they nominate tomorrow, they die. If only 3 players live, you lose this ability.',
+                firstNight: true,
+                otherNights: true,
+                nightActionTemplates: [['Choose a player to curse.', 'I choose {player}.']],
             },
             'imp': {
                 id: 'imp',
@@ -1243,7 +1283,18 @@ Steph</textarea>
                     ['Choose a player.', 'I choose {player}.'],
                     ['Choose three players.', 'I choose {player1}, {player2}, and {player3}.'],
                 ],
-            }
+            },
+            'yaggababble': {
+                id: 'yaggababble',
+                name: 'Yaggababble',
+                team: 'demon',
+                ability: 'You start knowing a secret phrase. For each time you said it publicly today, a player might die.',
+                firstNight: true,
+                otherNights: false,
+                nightActionTemplates: [
+                    [['Your secret phrase is "{phrase}".']],
+                ],
+            },
         };
 
         const EMBEDDED_SCRIPTS = {
@@ -1284,6 +1335,32 @@ Steph</textarea>
                     'goon', 'lunatic', 'tinker', 'moonchild',
                     'godfather', 'devils_advocate', 'assassin', 'mastermind',
                     'zombuul', 'pukka', 'shabaloth', 'po'
+                ],
+                setup: {
+                    5: { townsfolk: 3, outsider: 0, minion: 1, demon: 1 },
+                    6: { townsfolk: 3, outsider: 1, minion: 1, demon: 1 },
+                    7: { townsfolk: 5, outsider: 0, minion: 1, demon: 1 },
+                    8: { townsfolk: 5, outsider: 1, minion: 1, demon: 1 },
+                    9: { townsfolk: 5, outsider: 2, minion: 1, demon: 1 },
+                    10: { townsfolk: 7, outsider: 0, minion: 2, demon: 1 },
+                    11: { townsfolk: 7, outsider: 1, minion: 2, demon: 1 },
+                    12: { townsfolk: 7, outsider: 2, minion: 2, demon: 1 },
+                    13: { townsfolk: 9, outsider: 0, minion: 3, demon: 1 },
+                    14: { townsfolk: 9, outsider: 1, minion: 3, demon: 1 },
+                    15: { townsfolk: 9, outsider: 2, minion: 3, demon: 1 }
+                }
+            },
+            'trouble_babbling': {
+                id: 'trouble_babbling',
+                name: 'Trouble Babbling',
+                author: 'Community Script',
+                description: 'A custom script mixing classic and experimental characters.',
+                roles: [
+                    'noble', 'knight', 'investigator', 'chef', 'empath', 'fortune_teller',
+                    'soldier', 'monk', 'ravenkeeper', 'philosopher', 'slayer', 'gambler', 'gossip',
+                    'butler', 'drunk', 'recluse', 'moonchild',
+                    'witch', 'godfather', 'baron', 'scarlet_woman',
+                    'imp', 'yaggababble', 'po'
                 ],
                 setup: {
                     5: { townsfolk: 3, outsider: 0, minion: 1, demon: 1 },
@@ -3997,6 +4074,12 @@ Remove reminder brings up a model with a combo box with all the current reminder
      F: When the storyteller first hits "Start Game", and thus goes to the role selection screen, does that send out any timestamped messages for the players that they can use to establish the gameId, the script, and the current set of players?
 
      F: But there's a setTimeout there around the sendGameSetup. Does that delay the action?
+
+     F: Look at this code. Pay attention to the instructions for CLAUDE. I am going to add a third home-grown script, called "Trouble Babbling". It has the following characters: Noble, Knight, Investigator, Chef, Empath, Fortune Teller, Soldier, Monk, Ravenkeeper, Philosopher, Slayer, Gambler, Gossip, Butler, Drunk, Recluse, Moonchild, Witch, Godfather, Baron, Scarlet Woman, Imp, Yaggababble, Po. Please make the necessary changes. If you do not know some of the characters, look up their ability text on the wiki, for example: https://wiki.bloodontheclocktower.com/Yaggababble
+
+     F: The yaggababble actually does not choose their kills (see wiki page I linked).
+
+     F: But why are still having the storyteller send a message to the yaggababble asking them to choose a player?
 
      TODO: while this does re-establish the set of players, it does not load up past messages that we have sent. Also, we could easily include the player assignments in the pubnub messages for later retrieval in these situations.
 
