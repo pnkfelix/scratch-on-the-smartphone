@@ -3537,7 +3537,7 @@ Steph</textarea>
                             messageType: 'info',
                             from: currentUser,
                             to: player,
-                            content: `Your role is ${role.name}. ${teamAlignment}`,
+                            content: `Your role is ${role.name}. ${teamAlignment} ${role.ability.replace(/night\*/g, 'night (not the first)')}`,
                             templateData: { role: roleId },
                             timestamp: Date.now() + sentCount // Slight offset to prevent timestamp collisions
                         };
@@ -4237,6 +4237,12 @@ Remove reminder brings up a model with a combo box with all the current reminder
      F: Okay. This might be fixed now. The new problem: It doesn't seem like we are using the other_night_order on nights 2 and above.
 
      F: I'm only seeing "Night order for night 1", not night 2, even though it is night 2. The dayNightCounter says 2.
+
+     F: Look at this code. Pay attention to the instructions for CLAUDE. When we send out the role assignments, in the same message where you say "You are X, you are Good/Evil." add additional text after that with a transcription of their role's associated ability field, so that the player does not have to look it up in the script.
+
+     F: Please show me the change as a diff.
+
+     F: Okay. Lets make one more adjustment: for the ability text that ever says night* , expand that out before sending it in the message into night (not the first), since I cannot expect the receiving players to remember what "night*" means. (But leave the ability text in the script definitions alone, since this is standard lingo for Clocktower.)
 
      TODO: while this does re-establish the set of players, it does not load up past messages that we have sent. Also, we could easily include the player assignments in the pubnub messages for later retrieval in these situations.
 
