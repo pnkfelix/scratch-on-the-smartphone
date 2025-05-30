@@ -1310,6 +1310,12 @@ Steph</textarea>
                     'poisoner', 'spy', 'scarlet_woman', 'baron',
                     'imp'
                 ],
+                first_night_order: [
+                    'poisoner', 'spy', 'washerwoman', 'librarian', 'investigator', 'chef', 'empath', 'fortune_teller', 'butler'
+                ],
+                other_night_order: [
+                    'poisoner', 'monk', 'spy', 'scarlet_woman', 'imp', 'ravenkeeper', 'undertaker', 'empath', 'fortune_teller', 'butler'
+                ],
                 setup: {
                     5: { townsfolk: 3, outsider: 0, minion: 1, demon: 1 },
                     6: { townsfolk: 3, outsider: 1, minion: 1, demon: 1 },
@@ -1336,6 +1342,12 @@ Steph</textarea>
                     'godfather', 'devils_advocate', 'assassin', 'mastermind',
                     'zombuul', 'pukka', 'shabaloth', 'po'
                 ],
+                first_night_order: [
+                    'lunatic', 'sailor', 'courtier', 'godfather', 'devils_advocate', 'lunatic', 'pukka', 'grandmother', 'chambermaid', 'goon'
+                ],
+                other_night_order: [
+                    'minstrel', 'sailor', 'innkeeper', 'courtier', 'gambler', 'devils_advocate', 'lunatic', 'exorcist', 'zombuul', 'pukka', 'shabaloth', 'po', 'assassin', 'godfather', 'professor', 'gossip', 'tinker', 'moonchild', 'grandmother', 'chambermaid', 'goon'
+                ],
                 setup: {
                     5: { townsfolk: 3, outsider: 0, minion: 1, demon: 1 },
                     6: { townsfolk: 3, outsider: 1, minion: 1, demon: 1 },
@@ -1361,6 +1373,12 @@ Steph</textarea>
                     'butler', 'drunk', 'recluse', 'moonchild',
                     'witch', 'godfather', 'baron', 'scarlet_woman',
                     'imp', 'yaggababble', 'po'
+                ],
+                first_night_order: [
+                    'philosopher', 'yaggababble', 'witch', 'godfather', 'imp', 'po', 'knight', 'noble', 'investigator', 'chef', 'empath', 'fortune_teller', 'butler', 'gambler'
+                ],
+                other_night_order: [
+                    'philosopher', 'monk', 'witch', 'scarlet_woman', 'imp', 'po', 'yaggababble', 'godfather', 'gossip', 'ravenkeeper', 'empath', 'fortune_teller', 'undertaker', 'butler', 'gambler'
                 ],
                 setup: {
                     5: { townsfolk: 3, outsider: 0, minion: 1, demon: 1 },
@@ -4080,6 +4098,24 @@ Remove reminder brings up a model with a combo box with all the current reminder
      F: The yaggababble actually does not choose their kills (see wiki page I linked).
 
      F: But why are still having the storyteller send a message to the yaggababble asking them to choose a player?
+
+     F: Look at this code. Pay attention to the instructions for CLAUDE. I want each script to have two new fields, named "first_night_order" and "other_night_order". They each indicate which order the roles are visited in. If you are not sure what order to use for a script, ask me and I'll tell you, do not guess.
+
+     F: (Felix transcribed the established night orders for TB and BMR, and then fed the LLM the full list of all characters from https://www.reddit.com/r/BloodOnTheClocktower/comments/1ani01x/kitchen_sink_all_roles_night_order/ )
+
+     F: I don't think Baron needs to be in any night order. Was it on the original list?
+
+     F: Scarlet Woman shouldn't be in the first night order either I think.
+
+     F: Can you go back and double check them all against the original lists I gave, and see if any remaining exceptions you made (analogous to Baron and Scarlet Woman that I had to point out) and point them out to me?
+
+     F: Remove Drunk from the night orders. I think Gossip is solely an Other Night, not a First Night.  Moonchild should stay (the Storyteller needs to remember to take that action), Tinker should stay (Storyteller needs to remember to take that action), Minstrel should stay (Storyteller needs to remember to make everyone drunk once night falls); that's why it was first in my list for other nights (but its not in the list for first night).
+
+     F: This looks fine now. Lets add them to the script definitions in the code.
+
+     F: I want it presented to me as a diff. It shouldn't be too long since these should just be lists of role ids.
+
+     F: oh those should be removed from the night orders. (I took them out because I took out Spy, and they are too strong on a script without Spy.)
 
      TODO: while this does re-establish the set of players, it does not load up past messages that we have sent. Also, we could easily include the player assignments in the pubnub messages for later retrieval in these situations.
 
