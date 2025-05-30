@@ -1,0 +1,3693 @@
+<!--
+## NOTES FOR CLAUDE
+
+* If you have concrete suggestions for changes, present them as diffs. Do not attempt to present the whole file rewritten, as that wastes tokens.
+* If you make an array expression whose elements are written one-per-line, then prefer to include a trailing comma after the last element.
+
+## TODO LIST
+
+     [ ] WHen storyteller clicks a message, make that be the current "Send to" if one isn't already set.
+     [ ] Add name of current msg target in the "Type your message..." box, i.e. "Type your messager to Neha."
+     [ ] Maybe add message drafting for the storyteller, so that they can start a message to someone, then click someone else, start their message, and then come back
+     [X] Add role assignment tracking for the storyteller
+     [ ] Add selection of roles from the script
+     [X] Add random assignment of roles to the players
+     [ ] The list of all players and the send to combo box are redundant. Remove one of them after getting more UX on phone
+     [ ] The preset collection of template options is being applied universally. Its a nice demo of a concept but it isn't buying anything yet. I think once we have role assignment then it might make more sense to have those things get filled in.
+     [ ] "Reminder tokens" aka per-player notes. Potentially have the available set of reminders be informed by the characters on the script, maybe even solely the ones in play.
+     [ ] Add ability to add/remove players.
+     [X] More specifically on the above: there's some issue where If I try to adjust the number of players for a *new game* in a pre-existing room, the overall system seems to grab (maybe old?) messages and allows them to override my more recent choices. There might be a need for some kind of game identification or timestamping to deal with this.
+
+
+-->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BotC Messenger - Simple</title>
+    <script src="https://cdn.pubnub.com/sdk/javascript/pubnub.8.2.0.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #1a1a2e, #16213e);
+            color: #fff;
+            min-height: 100vh;
+            padding: 10px;
+        }
+
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+
+        .title {
+            font-size: 1.8rem;
+            color: #ff6b6b;
+            margin-bottom: 10px;
+        }
+
+        .card {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 15px;
+            padding: 20px;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            margin-bottom: 20px;
+        }
+
+        .input-group {
+            margin-bottom: 15px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: 600;
+            color: #ffd93d;
+        }
+
+        input, select, textarea {
+            width: 100%;
+            padding: 12px;
+            border: none;
+            border-radius: 8px;
+            background: rgba(255, 255, 255, 0.9);
+            color: #333;
+            font-size: 16px;
+        }
+
+        button {
+            background: linear-gradient(45deg, #ff6b6b, #ee5a24);
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.2s;
+            margin: 5px;
+        }
+
+        button:hover {
+            transform: translateY(-2px);
+        }
+
+        button:disabled {
+            background: #666;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .messages {
+            height: 300px;
+            overflow-y: auto;
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 15px;
+        }
+
+        .message {
+            margin-bottom: 15px;
+            padding: 12px;
+            border-radius: 8px;
+            background: rgba(255, 255, 255, 0.1);
+        }
+
+        .message.from-storyteller {
+            background: rgba(255, 215, 61, 0.2);
+            border-left: 4px solid #ffd93d;
+        }
+
+        .message.from-player {
+            background: rgba(38, 222, 129, 0.2);
+            border-left: 4px solid #26de81;
+        }
+
+        .message-header {
+            font-size: 0.8rem;
+            opacity: 0.7;
+            margin-bottom: 5px;
+        }
+
+        .delivery-status {
+            color: #26de81;
+            font-size: 0.8rem;
+        }
+
+        .template-ui {
+            background: rgba(255, 107, 107, 0.2);
+            border: 1px dashed #ff6b6b;
+            border-radius: 8px;
+            padding: 15px;
+            margin: 10px 0;
+        }
+
+        .template-field {
+            margin: 10px 0;
+        }
+
+        .response-preview {
+            background: rgba(38, 222, 129, 0.2);
+            border: 1px solid #26de81;
+            border-radius: 6px;
+            padding: 10px;
+            margin: 10px 0;
+            font-style: italic;
+        }
+
+        .compose-area {
+            display: flex;
+            gap: 10px;
+            align-items: flex-end;
+        }
+
+        .compose-area textarea {
+            flex: 1;
+            min-height: 50px;
+            resize: vertical;
+        }
+
+        .compose-area button {
+            margin: 0;
+            min-width: 80px;
+        }
+
+        .storyteller-controls {
+            background: rgba(255, 215, 61, 0.1);
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 20px;
+        }
+
+        .template-buttons {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 10px;
+            margin-top: 10px;
+        }
+
+        .template-btn {
+            background: rgba(255, 215, 61, 0.3);
+            border: 1px solid #ffd93d;
+            color: #ffd93d;
+            padding: 10px;
+            font-size: 0.9rem;
+        }
+
+        .template-btn:hover {
+            background: rgba(255, 215, 61, 0.5);
+        }
+
+        .players-list {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+            gap: 10px;
+            margin: 15px 0;
+        }
+
+        .player-card {
+            background: rgba(255, 255, 255, 0.1);
+            padding: 10px;
+            border-radius: 8px;
+            text-align: center;
+            border: 2px solid transparent;
+        }
+
+        .player-card .player-name {
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+
+        .player-card .player-role {
+            font-size: 0.8rem;
+            opacity: 0.8;
+            margin-bottom: 5px;
+        }
+
+        .player-card .role-none {
+            color: #9e9e9e;
+            font-style: italic;
+        }
+
+        .player-card .role-townsfolk {
+            color: #4a90e2;
+        }
+
+        .player-card .role-outsider {
+            color: #9e9e9e;
+        }
+
+        .player-card .role-minion {
+            color: #ff6b6b;
+        }
+
+        .player-card .role-demon {
+            color: #8b0000;
+        }
+
+        .player-card.storyteller-view:hover {
+            cursor: pointer;
+            background: rgba(255, 255, 255, 0.2);
+        }
+
+        .player-card.storyteller {
+            border-color: #ffd93d;
+        }
+
+        .player-card.online {
+            border-color: #26de81;
+        }
+
+        .role-assignment-modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.8);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+        }
+
+        .role-assignment-content {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 15px;
+            padding: 20px;
+            max-width: 400px;
+            width: 90%;
+        }
+
+        .status {
+            text-align: center;
+            padding: 10px;
+            border-radius: 8px;
+            margin-bottom: 15px;
+        }
+
+        .status.connected {
+            background: rgba(38, 222, 129, 0.2);
+            color: #26de81;
+        }
+
+        .status.disconnected {
+            background: rgba(255, 107, 107, 0.2);
+            color: #ff6b6b;
+        }
+
+        .script-viewer-content {
+            max-height: 400px;
+            overflow-y: auto;
+        }
+
+        .team-section {
+            margin: 20px 0;
+        }
+
+        .team-header {
+            font-size: 1.2rem;
+            font-weight: bold;
+            margin-bottom: 10px;
+            padding: 8px 12px;
+            border-radius: 6px;
+            text-align: center;
+        }
+
+        .team-townsfolk {
+            background: rgba(74, 144, 226, 0.3);
+            color: #4a90e2;
+        }
+
+        .team-outsider {
+            background: rgba(158, 158, 158, 0.3);
+            color: #9e9e9e;
+        }
+
+        .team-minion {
+            background: rgba(255, 107, 107, 0.3);
+            color: #ff6b6b;
+        }
+
+        .team-demon {
+            background: rgba(139, 0, 0, 0.3);
+            color: #8b0000;
+        }
+
+        .role-card {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 8px;
+            padding: 12px;
+            margin: 8px 0;
+            border-left: 4px solid;
+        }
+
+        .role-card.townsfolk {
+            border-left-color: #4a90e2;
+        }
+
+        .role-card.outsider {
+            border-left-color: #9e9e9e;
+        }
+
+        .role-card.minion {
+            border-left-color: #ff6b6b;
+        }
+
+        .role-card.demon {
+            border-left-color: #8b0000;
+        }
+
+        .role-name {
+            font-weight: bold;
+            font-size: 1.1rem;
+            margin-bottom: 5px;
+        }
+
+        .role-ability {
+            font-size: 0.9rem;
+            line-height: 1.4;
+            opacity: 0.9;
+        }
+
+        .hidden {
+            display: none;
+        }
+
+        .role-selection-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 10px;
+            margin: 15px 0;
+        }
+
+        .role-selection-card {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 8px;
+            padding: 12px;
+            border: 2px solid transparent;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .role-selection-card:hover {
+            background: rgba(255, 255, 255, 0.2);
+        }
+
+        .role-selection-card.selected {
+            border-color: #26de81;
+            background: rgba(38, 222, 129, 0.2);
+        }
+
+        .role-selection-card.townsfolk {
+            border-left: 4px solid #4a90e2;
+        }
+
+        .role-selection-card.outsider {
+            border-left: 4px solid #9e9e9e;
+        }
+
+        .role-selection-card.minion {
+            border-left: 4px solid #ff6b6b;
+        }
+
+        .role-selection-card.demon {
+            border-left: 4px solid #8b0000;
+        }
+
+        .role-selection-name {
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+
+        .role-selection-ability {
+            font-size: 0.8rem;
+            opacity: 0.8;
+            line-height: 1.3;
+        }
+
+        .distribution-match {
+            color: #26de81;
+        }
+
+        .distribution-over {
+            color: #ff6b6b;
+        }
+
+        .distribution-under {
+            color: #ffd93d;
+        }
+
+        @media (max-width: 600px) {
+            .compose-area {
+                flex-direction: column;
+            }
+
+            .compose-area button {
+                width: 100%;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1 class="title">🩸 Blood on the Clocktower</h1>
+            <p>Simple Messaging App</p>
+        </div>
+
+        <!-- Setup Screen -->
+        <div id="setupScreen" class="card">
+            <div class="input-group">
+                <label for="userType">I am the:</label>
+                <select id="userType">
+                    <option value="player">Player</option>
+                    <option value="storyteller">Storyteller</option>
+                </select>
+            </div>
+
+            <div id="storytellerSetup" class="hidden">
+                <div class="input-group">
+                    <label>Game Mode:</label>
+                    <div style="display: flex; gap: 10px; margin-bottom: 15px;">
+                        <button type="button" id="newGameBtn" onclick="selectGameMode('new')" style="flex: 1;">🎲 New Game</button>
+                        <button type="button" id="reconnectBtn" onclick="selectGameMode('reconnect')" style="flex: 1; background: #666;">🔄 Reconnect</button>
+                    </div>
+                </div>
+
+                 <div class="input-group">
+                    <label for="gameRoom">Game Room ID:</label>
+                    <input type="text" id="gameRoom" placeholder="Enter or create room ID"
+               value="botc_ddt"
+               >
+                    <button type="button" id="generateRoomBtn" onclick="generateRoomId()">Generate New Room</button>
+                </div>
+
+                <div id="newGameFields" class="input-group">
+                    <label for="scriptSelect">Script:</label>
+                    <select id="scriptSelect">
+                        <option value="">Select a script...</option>
+                    </select>
+                </div>
+
+                <div id="playerNamesField" class="input-group">
+                    <label for="playerNames">Player Names (one per line):</label>
+                    <textarea id="playerNames" rows="8" placeholder="Alice&#10;Bob&#10;Charlie&#10;Diana&#10;Eve">Amanda
+Rob
+Pratik
+Neha
+Kunjal
+Courtney
+Taylor
+Steph</textarea>
+                </div>
+            </div>
+
+            <div id="playerSetup" class="hidden">
+                <div class="input-group">
+                    <label for="gameRoomPlayer">Game Room ID:</label>
+                    <input type="text" id="gameRoomPlayer" placeholder="Enter room ID from Storyteller"
+               value="botc_ddt"
+               >
+                    <button type="button" onclick="checkRoom()">Check Room</button>
+                </div>
+
+                <div id="playerNameSection" class="input-group hidden">
+                    <label for="playerName">Your Name:</label>
+                    <select id="playerName">
+                        <option value="">Select your name...</option>
+                    </select>
+                </div>
+
+                <div id="roomStatus" class="hidden"></div>
+            </div>
+
+            <button id="joinGameBtn" onclick="joinGame()">Start Game</button>
+        </div>
+
+        <!-- Role Selection Screen -->
+        <div id="roleSelectionScreen" class="card hidden">
+            <h2>Select Roles for Game</h2>
+            <div class="input-group">
+                <label>Script: <span id="roleSelectionScript"></span> | Players: <span id="roleSelectionPlayerCount"></span></label>
+            </div>
+
+            <div id="distributionInfo" class="card" style="background: rgba(74, 144, 226, 0.2); margin-bottom: 20px;">
+                <h4>Recommended Distribution</h4>
+                <div id="distributionDisplay"></div>
+            </div>
+
+            <div style="display: flex; gap: 10px; margin-bottom: 20px;">
+                <button onclick="randomlySelectRoles()" style="flex: 1; background: linear-gradient(45deg, #26de81, #20bf6b);">
+                    🎲 Random Selection
+                </button>
+                <button onclick="clearAllRoles()" style="flex: 1; background: #666;">
+                    Clear All
+                </button>
+            </div>
+
+            <div id="currentSelectionStatus" class="status" style="margin-bottom: 20px;"></div>
+
+            <div id="roleSelectionContent">
+                <div class="team-section">
+                    <div class="team-header team-townsfolk">
+                        👥 Townsfolk (<span id="townsfolkCount">0</span>/<span id="townsfolkTarget">0</span>)
+                    </div>
+                    <div id="townsfolkRoles" class="role-selection-grid"></div>
+                </div>
+
+                <div class="team-section">
+                    <div class="team-header team-outsider">
+                        🚪 Outsiders (<span id="outsiderCount">0</span>/<span id="outsiderTarget">0</span>)
+                    </div>
+                    <div id="outsiderRoles" class="role-selection-grid"></div>
+                </div>
+
+                <div class="team-section">
+                    <div class="team-header team-minion">
+                        😈 Minions (<span id="minionCount">0</span>/<span id="minionTarget">0</span>)
+                    </div>
+                    <div id="minionRoles" class="role-selection-grid"></div>
+                </div>
+
+                <div class="team-section">
+                    <div class="team-header team-demon">
+                        👹 Demons (<span id="demonCount">0</span>/<span id="demonTarget">0</span>)
+                    </div>
+                    <div id="demonRoles" class="role-selection-grid"></div>
+                </div>
+            </div>
+
+            <div style="display: flex; gap: 10px; margin-top: 20px;">
+                <button onclick="goBackToSetup()" style="flex: 1; background: #666;">
+                    ← Back to Setup
+                </button>
+                <button onclick="proceedWithSelectedRoles()" style="flex: 1;" id="proceedButton">
+                    Continue to Game →
+                </button>
+            </div>
+        </div>
+
+        <!-- Game Screen -->
+        <div id="gameScreen" class="card hidden">
+            <div id="connectionStatus" class="status disconnected">
+                Connecting...
+            </div>
+
+            <div class="input-group">
+                <label>Script: <span id="displayScript"></span> | Room: <span id="displayRoom"></span> | <span id="displayTime"></span></label>
+            </div>
+
+            <button id="scriptViewerToggle" onclick="toggleScriptViewer()">📜 View Script</button>
+
+            <div class="players-list" id="playersList"></div>
+
+            <!-- Script Viewer -->
+            <div id="scriptViewer" class="card hidden" style="margin-bottom: 20px;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                    <h3 id="scriptViewerTitle">Script Viewer</h3>
+                    <button onclick="toggleScriptViewer()" style="background: #666; padding: 5px 10px; font-size: 12px;">✕ Close</button>
+                </div>
+
+                <div id="scriptContent">
+                    <p>No script loaded</p>
+                </div>
+            </div>
+
+            <!-- Storyteller Controls -->
+            <div id="storytellerControls" class="storyteller-controls hidden">
+                <h3>Storyteller Controls</h3>
+                <div class="input-group">
+                    <label for="targetPlayer">Send to:</label>
+                    <select id="targetPlayer">
+                        <option value="">Select player...</option>
+                    </select>
+                </div>
+
+                <div class="template-buttons">
+                    <button class="template-btn" onclick="useNightActionTemplate()">Night Action</button>
+                    <button class="template-btn" onclick="distributeAllRoles()">Distribute Roles</button>
+                    <button class="template-btn" onclick="distributeMinionAndDemonInfo()">Distribute Minion/Demon Info</button>
+                </div>
+
+                <div style="margin-top: 15px;">
+                    <button id="phaseToggle" onclick="togglePhase()" style="width: 100%; background: linear-gradient(45deg, #4a90e2, #357abd);">Day Breaks</button>
+                </div>
+            </div>
+
+            <div class="messaging-area">
+                <div class="messages" id="messages"></div>
+
+                <div id="templateUI" class="template-ui hidden">
+                    <h4 id="templateTitle">Template</h4>
+                    <div id="templateFields"></div>
+                    <div id="responsePreview" class="response-preview hidden"></div>
+                    <button onclick="sendTemplateMessage()">Send Message</button>
+                    <button onclick="cancelTemplate()">Cancel</button>
+                </div>
+
+                <div class="compose-area">
+                    <textarea id="messageInput" placeholder="Type your message..."></textarea>
+                    <button onclick="sendFreeMessage()">Send</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Role Assignment Modal -->
+    <div id="roleAssignmentModal" class="role-assignment-modal hidden">
+        <div class="role-assignment-content">
+            <h3 id="roleAssignmentTitle">Assign Role</h3>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 15px;">
+                <button onclick="showAddReminderModal()" style="background: linear-gradient(45deg, #ffd93d, #f39c12);">📝 Add Reminder</button>
+                <button onclick="showRemoveReminderModal()" style="background: linear-gradient(45deg, #ff6b6b, #ee5a24);">🗑️ Remove Reminder</button>
+                <button onclick="showChangeRoleModal()" style="background: linear-gradient(45deg, #26de81, #20bf6b);">🎭 Change Role</button>
+                <button onclick="closeRoleAssignmentModal()" style="background: #666;">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Change Role Modal -->
+    <div id="changeRoleModal" class="role-assignment-modal hidden">
+        <div class="role-assignment-content">
+            <h3 id="changeRoleTitle">Change Role</h3>
+            <div class="input-group">
+                <label for="roleSelect">Role:</label>
+                <select id="roleSelect">
+                    <option value="">No role assigned</option>
+                </select>
+            </div>
+            <div style="display: flex; gap: 10px; margin-top: 15px;">
+                <button onclick="confirmRoleChange()" style="flex: 1;">Change Role</button>
+                <button onclick="closeChangeRoleModal()" style="flex: 1; background: #666;">Cancel</button>
+            </div>
+            <div style="margin-top: 10px;">
+                <button onclick="randomlyAssignAllRoles()" style="width: 100%; background: linear-gradient(45deg, #26de81, #20bf6b);">
+                    🎲 Randomly Assign All Roles
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Add Reminder Modal -->
+    <div id="addReminderModal" class="role-assignment-modal hidden">
+        <div class="role-assignment-content">
+            <h3 id="addReminderTitle">Add Reminder</h3>
+            <div class="input-group">
+                <label for="reminderText">Reminder Note:</label>
+                <textarea id="reminderText" rows="3" placeholder="Enter reminder note..." style="resize: vertical;"></textarea>
+            </div>
+            <div style="display: flex; gap: 10px; margin-top: 15px;">
+                <button onclick="confirmAddReminder()" style="flex: 1;">Add Reminder</button>
+                <button onclick="closeAddReminderModal()" style="flex: 1; background: #666;">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Remove Reminder Modal -->
+    <div id="removeReminderModal" class="role-assignment-modal hidden">
+        <div class="role-assignment-content">
+            <h3 id="removeReminderTitle">Remove Reminder</h3>
+            <div class="input-group">
+                <label for="reminderSelect">Select Reminder to Remove:</label>
+                <select id="reminderSelect">
+                    <option value="">Select reminder...</option>
+                </select>
+            </div>
+            <div style="display: flex; gap: 10px; margin-top: 15px;">
+                <button onclick="confirmRemoveReminder()" style="flex: 1;">Remove Reminder</button>
+                <button onclick="closeRemoveReminderModal()" style="flex: 1; background: #666;">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // PubNub Configuration - Replace with your keys
+        const PUBNUB_PUBLISH_KEY = 'demo';
+        const PUBNUB_SUBSCRIBE_KEY = 'demo';
+
+        let pubnub;
+        let currentUser = '';
+        let currentRoom = '';
+        let userType = '';
+        let players = [];
+        let isConnected = false;
+        let currentTemplate = null;
+        let sentMessages = new Map(); // Track messages we've sent locally
+        let mostRecentSetupTimestamp = 0;
+        let playerRoles = {}; // Track role assignments
+        let selectedPlayerForRole = null;
+        let currentGameId = null;
+        let playerReminders = {}; // Track reminders for each player
+        let isNightTime = true; // Game starts at night
+        let dayNightCounter = 1; // Game starts on night 1
+
+        // Embedded script definitions
+        const ROLES = {
+            'washerwoman': {
+                id: 'washerwoman',
+                name: 'Washerwoman',
+                team: 'townsfolk',
+                ability: 'You start knowing that 1 of 2 players is a particular Townsfolk.',
+                firstNight: true,
+                otherNights: false,
+                nightActionTemplates: [['Either {player1} or {player2} is the {townsfolk_role}.']],
+            },
+            'librarian': {
+                id: 'librarian',
+                name: 'Librarian',
+                team: 'townsfolk',
+                ability: 'You start knowing that 1 of 2 players is a particular Outsider. (Or that zero are in play.)',
+                firstNight: true,
+                otherNights: false,
+                nightActionTemplates: [['Either {player1} or {player2} is the {outsider_role}.']],
+            },
+            'investigator': {
+                id: 'investigator',
+                name: 'Investigator',
+                team: 'townsfolk',
+                ability: 'You start knowing that 1 of 2 players is a particular Minion.',
+                firstNight: true,
+                otherNights: false,
+                nightActionTemplates: [['Either {player1} or {player2} is the {minion_role}.']],
+            },
+            'chef': {
+                id: 'chef',
+                name: 'Chef',
+                team: 'townsfolk',
+                ability: 'You start knowing how many pairs of evil players there are.',
+                firstNight: true,
+                otherNights: false,
+                nightActionTemplates: [['You learn that there are {number} pairs of evil players.']],
+            },
+            'empath': {
+                id: 'empath',
+                name: 'Empath',
+                team: 'townsfolk',
+                ability: 'Each night, you learn how many of your 2 alive neighbors are evil.',
+                firstNight: true,
+                otherNights: true,
+                nightActionTemplates: [['{number} of your living neighbors are evil.']],
+            },
+            'fortune_teller': {
+                id: 'fortune_teller',
+                name: 'Fortune Teller',
+                team: 'townsfolk',
+                ability: 'Each night, choose 2 players: you learn if either is a Demon. There is a good player that registers as a Demon to you.',
+                firstNight: true,
+                otherNights: true,
+                nightActionTemplates: [
+                    ['Choose two players tonight.', 'I choose {player1} and {player2}.'],
+                    ['Yes, one of them is the Demon.'],
+                    ['No, neither of them is the Demon.'],
+                ]
+            },
+            'undertaker': {
+                id: 'undertaker',
+                name: 'Undertaker',
+                team: 'townsfolk',
+                ability: 'Each night*, you learn which character died by execution today.',
+                firstNight: false,
+                otherNights: true,
+                nightActionTemplates: [['Today, the {role} died by execution.']],
+            },
+            'monk': {
+                id: 'monk',
+                name: 'Monk',
+                team: 'townsfolk',
+                ability: 'Each night*, choose a player (not yourself): they are safe from the Demon tonight.',
+                firstNight: false,
+                otherNights: true,
+                nightActionTemplates: [['Choose a player to protect tonight.', 'I choose to protect {player1}.']],
+            },
+            'ravenkeeper': {
+                id: 'ravenkeeper',
+                name: 'Ravenkeeper',
+                team: 'townsfolk',
+                ability: 'If you die at night, you are woken to choose a player: you learn their character.',
+                firstNight: false,
+                otherNights: true,
+                nightActionTemplates: [
+                    ['Choose a player to learn their character.', 'I choose {player1}.'],
+                    ['You learn that {player1} is the {role}.']
+                ]
+            },
+            'virgin': {
+                id: 'virgin',
+                name: 'Virgin',
+                team: 'townsfolk',
+                ability: 'The first time you are nominated, if the nominator is a Townsfolk, they are executed immediately.',
+                firstNight: false,
+                otherNights: false,
+            },
+            'slayer': {
+                id: 'slayer',
+                name: 'Slayer',
+                team: 'townsfolk',
+                ability: 'Once per game, during the day, publicly choose a player: if they are the Demon, they die.',
+                firstNight: false,
+                otherNights: false,
+            },
+            'soldier': {
+                id: 'soldier',
+                name: 'Soldier',
+                team: 'townsfolk',
+                ability: 'You are safe from the Demon.',
+                firstNight: false,
+                otherNights: false,
+            },
+            'mayor': {
+                id: 'mayor',
+                name: 'Mayor',
+                team: 'townsfolk',
+                ability: 'If only 3 players live & no execution occurs, your team wins. If you die at night, another player might die instead.',
+                firstNight: false,
+                otherNights: false,
+            },
+            'butler': {
+                id: 'butler',
+                name: 'Butler',
+                team: 'outsider',
+                ability: 'Each night, choose a player (not yourself): tomorrow, you may only vote if they are voting too.',
+                firstNight: true,
+                otherNights: true,
+                nightActionTemplates: [['Choose your master for tomorrow.', 'I choose {player1} as my master.']],
+            },
+            'drunk': {
+                id: 'drunk',
+                name: 'Drunk',
+                team: 'outsider',
+                ability: 'You do not know you are the Drunk. You think you are a Townsfolk character, but your ability malfunctions.',
+                believesToBe: 'townsfolk',
+                firstNight: false,
+                otherNights: false,
+            },
+            'recluse': {
+                id: 'recluse',
+                name: 'Recluse',
+                team: 'outsider',
+                ability: 'You might register as evil & as a Minion or Demon, even when dead.',
+                firstNight: false,
+                otherNights: false,
+            },
+            'saint': {
+                id: 'saint',
+                name: 'Saint',
+                team: 'outsider',
+                ability: 'If you die by execution, your team loses.',
+                firstNight: false,
+                otherNights: false,
+            },
+            'poisoner': {
+                id: 'poisoner',
+                name: 'Poisoner',
+                team: 'minion',
+                ability: 'Each night, choose a player: they are poisoned tonight and tomorrow day.',
+                firstNight: true,
+                otherNights: true,
+                nightActionTemplates: [['Choose a player to poison.', 'I choose to poison {player1}.']],
+            },
+            'spy': {
+                id: 'spy',
+                name: 'Spy',
+                team: 'minion',
+                ability: 'Each night, you see the Grimoire. You might register as good & as a Townsfolk or Outsider.',
+                firstNight: true,
+                otherNights: true,
+            },
+            'scarlet_woman': {
+                id: 'scarlet_woman',
+                name: 'Scarlet Woman',
+                team: 'minion',
+                ability: 'If there are 5 or more players alive & the Demon dies, you become the Demon.',
+                firstNight: false,
+                otherNights: true,
+                nightActionTemplates: [['You are the {demon_role}.']]
+            },
+            'baron': {
+                id: 'baron',
+                name: 'Baron',
+                team: 'minion',
+                ability: 'There are extra Outsiders in play. [+2 Outsiders]',
+                firstNight: false,
+                otherNights: false,
+            },
+            'imp': {
+                id: 'imp',
+                name: 'Imp',
+                team: 'demon',
+                ability: 'Each night*, choose a player: they die. If you kill yourself this way, a Minion becomes the Imp.',
+                firstNight: false,
+                otherNights: true,
+                nightActionTemplates: [
+                    ['These three roles are not in play: {bluff_role1}, {bluff_role2}, {bluff_role3}.'],
+                    ['Choose a player to kill tonight. Choose yourself to make one of your minions the new Imp.', 'I choose to kill {player1}.']
+                ],
+            },
+            'grandmother': {
+                id: 'grandmother',
+                name: 'Grandmother',
+                team: 'townsfolk',
+                ability: 'You start knowing a good player & their character. If the Demon kills them, you die too.',
+                firstNight: true,
+                otherNights: false,
+                nightActionTemplates: [['You learn {player} is the {role}.']]
+            },
+            'sailor': {
+                id: 'sailor',
+                name: 'Sailor',
+                team: 'townsfolk',
+                ability: 'Each night, choose a player: they are drunk until dusk. You cannot die.',
+                firstNight: true,
+                otherNights: true,
+                nightActionTemplates: [['Choose a player.', 'I choose {player}.']],
+            },
+            'chambermaid': {
+                id: 'chambermaid',
+                name: 'Chambermaid',
+                team: 'townsfolk',
+                ability: 'Each night, choose 2 alive players (not yourself): you learn how many woke tonight due to their ability.',
+                firstNight: true,
+                otherNights: true,
+                nightActionTemplates: [['Choose two alive players.', 'I choose {player1} and {player2}.']],
+            },
+            'exorcist': {
+                id: 'exorcist',
+                name: 'Exorcist',
+                team: 'townsfolk',
+                ability: 'Each night*, choose a player (different to last night): the Demon, if chosen, learns who you are then doesn\'t wake tonight.',
+                firstNight: false,
+                otherNights: true,
+                nightActionTemplates: [['Choose a player.', 'I choose {player}.']],
+            },
+            'innkeeper': {
+                id: 'innkeeper',
+                name: 'Innkeeper',
+                team: 'townsfolk',
+                ability: 'Each night*, choose 2 players: they can\'t die tonight, but 1 is drunk until dusk.',
+                firstNight: false,
+                otherNights: true,
+                nightActionTemplates: [['Choose two players.', 'I choose {player1} and {player2}.']],
+            },
+            'gambler': {
+                id: 'gambler',
+                name: 'Gambler',
+                team: 'townsfolk',
+                ability: 'Each night*, choose a player & guess their character: if you guess wrong, you die.',
+                firstNight: false,
+                otherNights: true,
+                nightActionTemplates: [['Choose a player and a character.', 'I guess {player} is {role}.']],
+            },
+            'gossip': {
+                id: 'gossip',
+                name: 'Gossip',
+                team: 'townsfolk',
+                ability: 'Each day, you may make a public statement. Tonight, if it was true, a player dies.',
+                firstNight: false,
+                otherNights: true,
+            },
+            'courtier': {
+                id: 'courtier',
+                name: 'Courtier',
+                team: 'townsfolk',
+                ability: 'Once per game, at night, choose a character: they are drunk for 3 nights & 3 days.',
+                firstNight: true,
+                otherNights: true,
+                nightActionTemplates: [
+                    ['Do you wish to use your once-per-game ability?', 'I choose {yesno}.'],
+                    ['Choose a character.', 'I choose {role}.'],
+                ],
+            },
+            'professor': {
+                id: 'professor',
+                name: 'Professor',
+                team: 'townsfolk',
+                ability: 'Once per game, at night*, choose a dead player: if they are a Townsfolk, they are resurrected.',
+                firstNight: false,
+                otherNights: true,
+                nightActionTemplates: [
+                    ['Do you wish to use your once-per-game ability?', 'I choose {yesno}.'],
+                    ['Choose a dead player.', 'I choose {player}.'],
+                ],
+            },
+            'minstrel': {
+                id: 'minstrel',
+                name: 'Minstrel',
+                team: 'townsfolk',
+                ability: 'When a Minion dies by execution, all other players (except Travellers) are drunk until dusk tomorrow.',
+                firstNight: false,
+                otherNights: false,
+            },
+            'tea_lady': {
+                id: 'tea_lady',
+                name: 'Tea Lady',
+                team: 'townsfolk',
+                ability: 'If both your alive neighbors are good, they can\'t die.',
+                firstNight: false,
+                otherNights: false,
+            },
+            'pacifist': {
+                id: 'pacifist',
+                name: 'Pacifist',
+                team: 'townsfolk',
+                ability: 'Executed good players might not die.',
+                firstNight: false,
+                otherNights: false,
+            },
+            'fool': {
+                id: 'fool',
+                name: 'Fool',
+                team: 'townsfolk',
+                ability: 'The first time you die, you don\'t.',
+                firstNight: false,
+                otherNights: false,
+            },
+            'goon': {
+                id: 'goon',
+                name: 'Goon',
+                team: 'outsider',
+                ability: 'Each night, the 1st player to choose you with their ability is drunk until dusk. You become their alignment.',
+                firstNight: false,
+                otherNights: true,
+                nightActionTemplates: [['You are {goodevil}.']]
+            },
+            'lunatic': {
+                id: 'lunatic',
+                name: 'Lunatic',
+                team: 'outsider',
+                ability: 'You think you are a Demon, but you are not. The Demon knows who you are & who you choose at night.',
+                believesToBe: 'demon',
+                firstNight: true,
+                otherNights: true,
+                nightActionTemplates: [
+                    ['These three roles are not in play: {good_role1}, {good_role2}, {good_role3}.'],
+                ]
+            },
+            'tinker': {
+                id: 'tinker',
+                name: 'Tinker',
+                team: 'outsider',
+                ability: 'You might die at night.',
+                firstNight: false,
+                otherNights: true,
+            },
+            'moonchild': {
+                id: 'moonchild',
+                name: 'Moonchild',
+                team: 'outsider',
+                ability: 'When you learn that you died, publicly choose 1 alive player. Tonight, if it was a good player, they die.',
+                firstNight: false,
+                otherNights: false,
+            },
+            'godfather': {
+                id: 'godfather',
+                name: 'Godfather',
+                team: 'minion',
+                ability: 'You start knowing which Outsiders are in play. If 1 died today, choose a player tonight: they die. [-1 or +1 Outsider]',
+                firstNight: true,
+                otherNights: true,
+                nightActionTemplates: [['You learn that {role} is in play'], ['Choose a player to kill.', 'I choose {player}.']],
+            },
+            'devils_advocate': {
+                id: 'devils_advocate',
+                name: 'Devil\'s Advocate',
+                team: 'minion',
+                ability: 'Each night, choose a living player (different to last night): if executed tomorrow, they don\'t die.',
+                firstNight: true,
+                otherNights: true,
+                nightActionTemplates: [['Choose a player.', 'I choose {player}.']],
+            },
+            'assassin': {
+                id: 'assassin',
+                name: 'Assassin',
+                team: 'minion',
+                ability: 'Once per game, at night*, choose a player: they die, even if for some reason they could not.',
+                firstNight: false,
+                otherNights: true,
+                nightActionTemplates: [
+                    ['Do you wish to use your once-per-game ability?', 'I choose {yesno}.'],
+                    ['Choose a player.', 'I choose {player}.'],
+                ],
+            },
+            'mastermind': {
+                id: 'mastermind',
+                name: 'Mastermind',
+                team: 'minion',
+                ability: 'If the Demon dies by execution (ending the game), play for 1 more day. If a player is then executed, evil wins.',
+                firstNight: false,
+                otherNights: false,
+            },
+            'zombuul': {
+                id: 'zombuul',
+                name: 'Zombuul',
+                team: 'demon',
+                ability: 'Each night*, if no-one died today, choose a player: they die. The 1st time you die, you live but register as dead.',
+                firstNight: false,
+                otherNights: true,
+                nightActionTemplates: [
+                    ['These three roles are not in play: {bluff_role1}, {bluff_role2}, {bluff_role3}.'],
+                    ['Choose a player to kill tonight.', 'I choose to kill {player1}.']
+                ],
+            },
+            'pukka': {
+                id: 'pukka',
+                name: 'Pukka',
+                team: 'demon',
+                ability: 'Each night, choose a player: they are poisoned. The previously poisoned player dies then becomes healthy.',
+                firstNight: true,
+                otherNights: true,
+                nightActionTemplates: [
+                    ['These three roles are not in play: {bluff_role1}, {bluff_role2}, {bluff_role3}.'],
+                    ['Choose a player to poison tonight and kill tomorrow.', 'I choose {player1}.']
+                ],
+            },
+            'shabaloth': {
+                id: 'shabaloth',
+                name: 'Shabaloth',
+                team: 'demon',
+                ability: 'Each night*, choose 2 players: they die. A dead player you chose last night might be regurgitated.',
+                firstNight: false,
+                otherNights: true,
+                nightActionTemplates: [
+                    ['These three roles are not in play: {bluff_role1}, {bluff_role2}, {bluff_role3}.'],
+                    ['Choose two players.', 'I choose {player1} and {player2}.']
+                ],
+            },
+            'po': {
+                id: 'po',
+                name: 'Po',
+                team: 'demon',
+                ability: 'Each night*, you may choose a player: they die. If your last choice was no-one, choose 3 players tonight.',
+                firstNight: false,
+                otherNights: true,
+                nightActionTemplates: [
+                    ['These three roles are not in play: {bluff_role1}, {bluff_role2}, {bluff_role3}.'],
+                    ['Choose a player.', 'I choose {player}.'],
+                    ['Choose three players.', 'I choose {player1}, {player2}, and {player3}.'],
+                ],
+            }
+        };
+
+        const EMBEDDED_SCRIPTS = {
+            'trouble_brewing': {
+                id: 'trouble_brewing',
+                name: 'Trouble Brewing',
+                author: 'Steven Medway & The Pandemonium Institute',
+                description: 'The original Blood on the Clocktower script. Perfect for beginners.',
+                roles: [
+                    'washerwoman', 'librarian', 'investigator', 'chef', 'empath', 'fortune_teller',
+                    'undertaker', 'monk', 'ravenkeeper', 'virgin', 'slayer', 'soldier', 'mayor',
+                    'butler', 'drunk', 'recluse', 'saint',
+                    'poisoner', 'spy', 'scarlet_woman', 'baron',
+                    'imp'
+                ],
+                setup: {
+                    5: { townsfolk: 3, outsider: 0, minion: 1, demon: 1 },
+                    6: { townsfolk: 3, outsider: 1, minion: 1, demon: 1 },
+                    7: { townsfolk: 5, outsider: 0, minion: 1, demon: 1 },
+                    8: { townsfolk: 5, outsider: 1, minion: 1, demon: 1 },
+                    9: { townsfolk: 5, outsider: 2, minion: 1, demon: 1 },
+                    10: { townsfolk: 7, outsider: 0, minion: 2, demon: 1 },
+                    11: { townsfolk: 7, outsider: 1, minion: 2, demon: 1 },
+                    12: { townsfolk: 7, outsider: 2, minion: 2, demon: 1 },
+                    13: { townsfolk: 9, outsider: 0, minion: 3, demon: 1 },
+                    14: { townsfolk: 9, outsider: 1, minion: 3, demon: 1 },
+                    15: { townsfolk: 9, outsider: 2, minion: 3, demon: 1 }
+                }
+            },
+            'bad_moon_rising': {
+                id: 'bad_moon_rising',
+                name: 'Bad Moon Rising',
+                author: 'Steven Medway & The Pandemonium Institute',
+                description: 'An intermediate script featuring madness, dead votes, and exile.',
+                roles: [
+                    'grandmother', 'sailor', 'chambermaid', 'exorcist', 'innkeeper', 'gambler',
+                    'gossip', 'courtier', 'professor', 'minstrel', 'tea_lady', 'pacifist', 'fool',
+                    'goon', 'lunatic', 'tinker', 'moonchild',
+                    'godfather', 'devils_advocate', 'assassin', 'mastermind',
+                    'zombuul', 'pukka', 'shabaloth', 'po'
+                ],
+                setup: {
+                    5: { townsfolk: 3, outsider: 0, minion: 1, demon: 1 },
+                    6: { townsfolk: 3, outsider: 1, minion: 1, demon: 1 },
+                    7: { townsfolk: 5, outsider: 0, minion: 1, demon: 1 },
+                    8: { townsfolk: 5, outsider: 1, minion: 1, demon: 1 },
+                    9: { townsfolk: 5, outsider: 2, minion: 1, demon: 1 },
+                    10: { townsfolk: 7, outsider: 0, minion: 2, demon: 1 },
+                    11: { townsfolk: 7, outsider: 1, minion: 2, demon: 1 },
+                    12: { townsfolk: 7, outsider: 2, minion: 2, demon: 1 },
+                    13: { townsfolk: 9, outsider: 0, minion: 3, demon: 1 },
+                    14: { townsfolk: 9, outsider: 1, minion: 3, demon: 1 },
+                    15: { townsfolk: 9, outsider: 2, minion: 3, demon: 1 }
+                }
+            },
+        };
+
+        let currentScript = null;
+
+        let gameMode = 'new'; // 'new' or 'reconnect'
+        let selectedRoles = []; // Roles selected for the current game
+        let targetDistribution = {}; // Target role distribution
+
+        function generateGameId(roomId) {
+            // Extract room name and increment counter
+            const baseRoom = roomId.replace(/_game\d+$/, ''); // Remove existing game suffix
+
+            // For new games, we'll increment. For now, just generate based on timestamp
+            // This could be made more sophisticated with history parsing if needed
+            const gameNumber = Math.floor(Date.now() / 1000) % 10000; // Simple incrementing number
+            return `${baseRoom}_game${gameNumber}`;
+        }
+
+        function extractLatestGameId(roomId, messageHistory) {
+            // Look through message history to find the highest game number
+            let maxGameNumber = 0;
+            const baseRoom = roomId.replace(/_game\d+$/, '');
+
+            messageHistory.forEach(msg => {
+                if (msg.gameId && msg.gameId.startsWith(baseRoom + '_game')) {
+                    const gameNum = parseInt(msg.gameId.split('_game')[1]) || 0;
+                    maxGameNumber = Math.max(maxGameNumber, gameNum);
+                }
+            });
+
+            return `${baseRoom}_game${maxGameNumber + 1}`;
+        }
+
+      function selectGameMode(mode) {
+            gameMode = mode;
+            const newBtn = document.getElementById('newGameBtn');
+            const reconnectBtn = document.getElementById('reconnectBtn');
+            const generateBtn = document.getElementById('generateRoomBtn');
+            const newGameFields = document.getElementById('newGameFields');
+            const playerNamesField = document.getElementById('playerNamesField');
+            const joinBtn = document.getElementById('joinGameBtn');
+
+            if (mode === 'new') {
+                newBtn.style.background = 'linear-gradient(45deg, #ff6b6b, #ee5a24)';
+                reconnectBtn.style.background = '#666';
+                generateBtn.style.display = 'inline-block';
+                newGameFields.style.display = 'block';
+                playerNamesField.style.display = 'block';
+                joinBtn.textContent = 'Start Game';
+            } else {
+                newBtn.style.background = '#666';
+                reconnectBtn.style.background = 'linear-gradient(45deg, #ff6b6b, #ee5a24)';
+                generateBtn.style.display = 'none';
+                newGameFields.style.display = 'none';
+                playerNamesField.style.display = 'none';
+                joinBtn.textContent = 'Rejoin Game';
+            }
+        }
+
+        // Initialize user type selection and populate scripts
+        document.getElementById('userType').addEventListener('change', function() {
+            const storytellerSetup = document.getElementById('storytellerSetup');
+            const playerSetup = document.getElementById('playerSetup');
+
+            if (this.value === 'storyteller') {
+                storytellerSetup.classList.remove('hidden');
+                playerSetup.classList.add('hidden');
+            } else {
+                storytellerSetup.classList.add('hidden');
+                playerSetup.classList.remove('hidden');
+            }
+        });
+
+        // Populate script dropdown
+        function populateScriptDropdown() {
+            const scriptSelect = document.getElementById('scriptSelect');
+            scriptSelect.innerHTML = '<option value="">Select a script...</option>';
+
+            Object.values(EMBEDDED_SCRIPTS).forEach(script => {
+                const option = document.createElement('option');
+                option.value = script.id;
+                option.textContent = script.name;
+                scriptSelect.appendChild(option);
+            });
+        }
+
+        function generateRoomId() {
+            const roomId = 'botc_' + Math.random().toString(36).substr(2, 8);
+            document.getElementById('gameRoom').value = roomId;
+        }
+
+        function checkRoom() {
+            const roomId = document.getElementById('gameRoomPlayer').value.trim();
+            if (!roomId) {
+                alert('Please enter a room ID');
+                return;
+            }
+
+            // Simple room check - create temporary connection
+            const tempPubNub = new PubNub({
+                publishKey: PUBNUB_PUBLISH_KEY,
+                subscribeKey: PUBNUB_SUBSCRIBE_KEY,
+                userId: 'temp_' + Math.random().toString(36).substr(2, 8)
+            });
+
+            tempPubNub.addListener({
+                message: function(messageEvent) {
+                    if (messageEvent.message.type === 'game_setup') {
+                        const setup = messageEvent.message;
+                        populatePlayerNames(setup.players);
+                        tempPubNub.unsubscribeAll();
+                    }
+                }
+            });
+
+            tempPubNub.subscribe({ channels: [roomId] });
+
+            tempPubNub.publish({
+                channel: roomId,
+                message: { type: 'request_game_state', from: 'temp_player', timestamp: Date.now() }
+            });
+
+            setTimeout(() => {
+                if (document.getElementById('playerNameSection').classList.contains('hidden')) {
+                    showRoomStatus('Room not found or no Storyteller online.', 'error');
+                    tempPubNub.unsubscribeAll();
+                }
+            }, 3000);
+        }
+
+        function populatePlayerNames(playerList) {
+            players = playerList;
+            showRoomStatus(`Found game with ${playerList.length} players`, 'success');
+
+            const playerSelect = document.getElementById('playerName');
+            playerSelect.innerHTML = '<option value="">Select your name...</option>';
+            playerList.forEach(player => {
+                const option = document.createElement('option');
+                option.value = player;
+                option.textContent = player;
+                playerSelect.appendChild(option);
+            });
+
+            document.getElementById('playerNameSection').classList.remove('hidden');
+        }
+
+        function showRoomStatus(message, type) {
+            const statusEl = document.getElementById('roomStatus');
+            statusEl.textContent = message;
+            statusEl.className = type === 'success' ? 'status connected' : 'status disconnected';
+            statusEl.classList.remove('hidden');
+        }
+
+        function joinGame() {
+            userType = document.getElementById('userType').value;
+
+            if (userType === 'storyteller') {
+                currentRoom = document.getElementById('gameRoom').value.trim();
+
+                if (!currentRoom) {
+                    alert('Please enter a room ID');
+                    return;
+                }
+
+                if (gameMode === 'new') {
+                    const scriptId = document.getElementById('scriptSelect').value;
+                    console.log('scriptId:', scriptId);
+                    console.log('EMBEDDED_SCRIPTS[scriptId]:', EMBEDDED_SCRIPTS[scriptId]);
+
+                    if (!scriptId) {
+                        alert('Please select a script');
+                        return;
+                    }
+
+                    const playerNamesText = document.getElementById('playerNames').value.trim();
+                    if (!playerNamesText) {
+                        alert('Please enter player names');
+                        return;
+                    }
+
+                    // Load the selected script
+                    currentScript = EMBEDDED_SCRIPTS[scriptId];
+                    players = playerNamesText.split('\n').map(name => name.trim()).filter(name => name);
+
+                    // Calculate target distribution
+                    const playerCount = players.length;
+                    if (currentScript.setup && currentScript.setup[playerCount]) {
+                        targetDistribution = currentScript.setup[playerCount];
+                        currentGameId = generateGameId(currentRoom);
+                        showRoleSelectionScreen();
+                        return; // Don't proceed to game yet
+                    } else {
+                        alert(`No setup defined for ${playerCount} players in this script`);
+                        return;
+                    }
+
+                    // Populate target player dropdown for new games
+                    const targetSelect = document.getElementById('targetPlayer');
+                    targetSelect.innerHTML = '<option value="">Select player...</option>';
+                    players.forEach(player => {
+                        const option = document.createElement('option');
+                        option.value = player;
+                        option.textContent = player;
+                        targetSelect.appendChild(option);
+                    });
+                }
+
+                currentUser = 'Storyteller';
+            } else {
+                currentRoom = document.getElementById('gameRoomPlayer').value.trim();
+                currentUser = document.getElementById('playerName').value;
+
+                if (!currentRoom || !currentUser) {
+                    alert('Please check the room and select your name first');
+                    return;
+                }
+            }
+
+            initializePubNub();
+            // If storyteller starting new game, mark current time to ignore older setups
+            if (userType === 'storyteller' && gameMode === 'new') {
+                mostRecentSetupTimestamp = Date.now();
+            } else if (userType === 'storyteller' && gameMode === 'reconnect') {
+                // For reconnect, we'll determine gameId from message history
+                currentGameId = null; // Will be set when we process history
+            } else {
+               // Players will get gameId from storyteller's setup message
+            }
+            switchToGameScreen();
+        }
+
+        function initializePlayerRoles() {
+            playerRoles = {};
+        playerReminders = {};
+            players.forEach(player => {
+                playerRoles[player] = null;
+                playerReminders[player] = [];
+            });
+        }
+
+        function initializePubNub() {
+            pubnub = new PubNub({
+                publishKey: PUBNUB_PUBLISH_KEY,
+                subscribeKey: PUBNUB_SUBSCRIBE_KEY,
+                userId: currentUser
+            });
+
+            pubnub.subscribe({ channels: [currentRoom] });
+
+            pubnub.addListener({
+                message: function(messageEvent) {
+                    handleIncomingMessage(messageEvent.message);
+                },
+                status: function(statusEvent) {
+                    handleConnectionStatus(statusEvent);
+
+                    // When successfully connected, fetch message history
+                    if (statusEvent.category === 'PNConnectedCategory') {
+                        fetchMessageHistory();
+                    }
+                }
+            });
+
+            // If storyteller, send game setup
+            if (userType === 'storyteller') {
+                setTimeout(() => {
+                    sendGameSetup();
+                }, 1000);
+            }
+        }
+
+        function fetchMessageHistory() {
+            // Fetch the last 100 messages (adjust count as needed)
+            pubnub.history({
+                channel: currentRoom,
+                count: 100, // Max messages to fetch
+                reverse: false // false = newest first, true = oldest first
+            }).then((response) => {
+                if (response.messages && response.messages.length > 0) {
+                    // Process messages in chronological order (oldest first)
+                    const messages = response.messages.reverse();
+
+                    messages.forEach(messageWrapper => {
+                        // PubNub history wraps messages in an object with timetoken
+                        const message = messageWrapper.entry;
+                        reconstructGameStateFromMessage(message);
+                        handleIncomingMessage(message, true); // true = from history
+                    });
+                }
+            }).catch((error) => {
+                console.log('Error fetching message history:', error);
+            });
+        }
+
+        function reconstructGameStateFromMessage(message) {
+            // Only reconstruct for storytellers in reconnect mode
+            if (userType !== 'storyteller' || gameMode !== 'reconnect') {
+                return;
+            }
+
+            // Find the most recent game_setup message to establish current game
+            if (message.type === 'game_setup' && message.gameId) {
+                if (!currentGameId || message.timestamp > mostRecentSetupTimestamp) {
+                    currentGameId = message.gameId;
+                    mostRecentSetupTimestamp = message.timestamp;
+
+                    // Reconstruct basic game state
+                    if (message.players) {
+                        players = message.players;
+                    }
+                    if (message.script) {
+                        if (typeof message.script === 'string') {
+                            currentScript = Object.values(EMBEDDED_SCRIPTS).find(s => s.name === message.script) ||
+                                           EMBEDDED_SCRIPTS[message.script];
+                        } else {
+                            currentScript = message.script;
+                        }
+                    }
+                    if (message.playerRoles) {
+                        playerRoles = message.playerRoles;
+                    }
+                    if (message.playerReminders) {
+                        playerReminders = message.playerReminders;
+                    }
+                }
+            }
+
+            // Update role assignments from more recent role_assignment messages
+            if (message.type === 'role_assignment' && message.gameId === currentGameId && message.playerRoles) {
+                playerRoles = { ...playerRoles, ...message.playerRoles };
+            }
+
+            // Update reminders from more recent reminder_update messages
+            if (message.type === 'reminder_update' && message.gameId === currentGameId && message.playerReminders) {
+                playerReminders = { ...playerReminders, ...message.playerReminders };
+            }
+
+            // Reconstruct phase state from daybreak/nightfall messages
+            if ((message.type === 'daybreak' || message.type === 'nightfall') && message.gameId === currentGameId) {
+                isNightTime = (message.type === 'nightfall');
+            }
+        }
+
+        function handleConnectionStatus(statusEvent) {
+            const statusEl = document.getElementById('connectionStatus');
+
+            if (statusEvent.category === 'PNConnectedCategory') {
+                isConnected = true;
+                statusEl.textContent = 'Connected';
+                statusEl.className = 'status connected';
+            } else if (statusEvent.category === 'PNNetworkDownCategory') {
+                isConnected = false;
+                statusEl.textContent = 'Connection lost';
+                statusEl.className = 'status disconnected';
+            }
+
+            // After connection is established and history is processed, update UI for reconnecting storytellers
+            if (statusEvent.category === 'PNConnectedCategory' && userType === 'storyteller' && gameMode === 'reconnect') {
+                setTimeout(() => {
+                    updatePlayersList();
+                    updatePhaseUI();
+                    populateTargetPlayerDropdown();
+                }, 2000); // Give time for history processing
+            }
+        }
+
+
+
+        function sendGameSetup() {
+          console.log('sendGameSetup called, currentScript:', currentScript); // Add this line
+          const setupMessage = {
+                gameId: currentGameId,
+                type: 'game_setup',
+                players: players,
+                script: currentScript,
+                playerRoles: playerRoles,
+                playerReminders: playerReminders,
+                storyteller: currentUser,
+                timestamp: Date.now()
+            };
+
+            pubnub.publish({
+                channel: currentRoom,
+                message: setupMessage
+            });
+        }
+
+        function togglePhase() {
+            const newPhase = isNightTime ? 'daybreak' : 'nightfall';
+
+            // Broadcast the specific phase event
+            pubnub.publish({
+                channel: currentRoom,
+                message: {
+                    type: newPhase,
+                    gameId: currentGameId,
+                    timestamp: Date.now()
+                }
+            });
+        }
+
+        function handleIncomingMessage(message, isFromHistory = false) {
+
+            let debug_payload = {
+                messageType: message.type,
+                messageGameId: message.gameId,
+                currentGameId: currentGameId,
+                userType: userType,
+                from: message.from,
+                to: message.to,
+                currentUser: currentUser
+            };
+            // console.log('handleIncomingMessage called:', debug_payload);
+
+
+            if (message.type === 'game_setup') {
+
+                // For players, adopt the most recent gameId. For storytellers, only process matching gameId
+                if (userType === 'player' || message.gameId === currentGameId) {
+                    // Update our current game ID if we don't have one or this is newer
+                    if (!currentGameId || message.timestamp > mostRecentSetupTimestamp) {
+                        currentGameId = message.gameId;
+                        console.log('Updated currentGameId to:', currentGameId);
+                    }
+
+                    mostRecentSetupTimestamp = message.timestamp;
+                    players = message.players;
+
+                    if (message.playerRoles) {
+                        playerRoles = message.playerRoles;
+                    }
+
+                    if (message.playerReminders) {
+                        playerReminders = message.playerReminders;
+                    }
+
+                    // Look up the full script object from the script name/id
+                    if (typeof message.script === 'string') {
+                        // If it's just a name, find the script by name
+                        currentScript = Object.values(EMBEDDED_SCRIPTS).find(s => s.name === message.script) ||
+                                       EMBEDDED_SCRIPTS[message.script];
+                    } else {
+                        // If it's already an object, use it directly
+                        currentScript = message.script;
+                    }
+
+                    updatePlayersList();
+               }
+               // If it's an older setup message, just ignore it
+            } else if (message.type === 'request_game_state' && userType === 'storyteller') {
+                // Don't respond to historical requests
+                if (!isFromHistory) {
+                    sendGameSetup();
+                }
+            } else if (message.type === 'role_assignment' && userType === 'storyteller' &&
+                      message.gameId === currentGameId) {
+                // Update local role assignments
+                if (message.playerRoles) {
+                    playerRoles = message.playerRoles;
+                    updatePlayersList();
+                }
+            } else if (message.type === 'reminder_update' && userType === 'storyteller' &&
+                       message.gameId === currentGameId) {
+                // Update local reminder assignments
+                if (message.playerReminders) {
+                    playerReminders = message.playerReminders;
+                    updatePlayersList();
+                }
+            } else if (message.type === 'daybreak' && message.gameId === currentGameId) {
+                setDayPhase();
+            } else if (message.type === 'nightfall' && message.gameId === currentGameId) {
+                setNightPhase();
+            } else if (message.type === 'private_message' &&
+                       (message.gameId === currentGameId || (userType === 'player' && !currentGameId))) {
+
+              console.log('Processing private message:', message);
+
+              // If player doesn't have gameId yet, adopt it from this message
+              if (userType === 'player' && !currentGameId && message.gameId) {
+                currentGameId = message.gameId;
+                console.log('Player adopted gameId from message:', currentGameId);
+              }
+
+                // Check if this is an echo of our own message
+                if (message.from === currentUser && sentMessages.has(message.timestamp)) {
+                    // This is an echo - mark the local message as delivered
+                    markMessageDelivered(message.timestamp);
+                    return; // Don't display duplicate
+                }
+
+                // If it's not our message or not in sent messages, display normally
+                displayMessage(message);
+            } else {
+                console.log('Message rejected - no matching condition');
+            }
+        }
+
+        function switchToGameScreen() {
+            document.getElementById('setupScreen').classList.add('hidden');
+            document.getElementById('gameScreen').classList.remove('hidden');
+
+            document.getElementById('displayRoom').textContent = currentRoom;
+            document.getElementById('displayTime').textContent = 'Night 1';
+
+            if (currentScript) {
+                document.getElementById('displayScript').textContent = currentScript.name;
+                updateScriptViewer();
+            }
+
+            if (userType === 'storyteller') {
+                document.getElementById('storytellerControls').classList.remove('hidden');
+            }
+
+            updatePlayersList();
+        }
+
+        function updatePlayersList() {
+            const playersList = document.getElementById('playersList');
+            playersList.innerHTML = '';
+
+            // Debug log to see what we're working with
+            console.log('updatePlayersList called, playerRoles:', playerRoles);
+            console.log('currentScript:', currentScript);
+
+          players.forEach(player => {
+            const playerCard = document.createElement('div');
+                playerCard.className = 'player-card';
+                // playerCard.textContent = player; // already added in nameDiv below
+
+                const nameDiv = document.createElement('div');
+                nameDiv.className = 'player-name';
+                nameDiv.textContent = player;
+                playerCard.appendChild(nameDiv);
+
+                // Show role if storyteller
+                if (userType === 'storyteller') {
+                    const roleDiv = document.createElement('div');
+                    roleDiv.className = 'player-role';
+                    const roleId = playerRoles[player];
+                    const role = roleId ? getRoleById(roleId) : null;
+
+                    // Debug individual role lookup
+                    console.log(`Player ${player}: roleId=${roleId}, role=`, role);
+
+                    roleDiv.innerHTML = role ?
+                        `<span class="role-${role.team}">${role.name}</span>` :
+                        '<span class="role-none">No role</span>';
+                    playerCard.appendChild(roleDiv);
+
+                    // Show reminders if any
+                    if (playerReminders[player] && playerReminders[player].length > 0) {
+                        const remindersDiv = document.createElement('div');
+                        remindersDiv.className = 'player-reminders';
+                        remindersDiv.style.fontSize = '0.7rem';
+                        remindersDiv.style.opacity = '0.8';
+                        remindersDiv.style.marginTop = '3px';
+                        remindersDiv.style.fontStyle = 'italic';
+                        remindersDiv.innerHTML = playerReminders[player].map(reminder => `• ${reminder}`).join('<br>');
+                        playerCard.appendChild(remindersDiv);
+                    }
+
+                    playerCard.classList.add('storyteller-view');
+                    playerCard.onclick = () => openRoleAssignmentModal(player);
+                }
+
+                if (player === currentUser) {
+                    playerCard.classList.add('online');
+                }
+
+                playersList.appendChild(playerCard);
+            });
+
+            if (userType === 'player') {
+                const storytellerCard = document.createElement('div');
+                storytellerCard.className = 'player-card storyteller';
+                storytellerCard.textContent = '👑 Storyteller';
+                playersList.appendChild(storytellerCard);
+            } else if (userType == 'storyteller') {
+                // Update target player dropdown for storytellers
+                const targetSelect = document.getElementById('targetPlayer');
+                targetSelect.innerHTML = '<option value="">Select player...</option>';
+                players.forEach(player => {
+                    const option = document.createElement('option');
+                    option.value = player;
+                    option.textContent = player;
+                    targetSelect.appendChild(option);
+                });
+            }
+        }
+
+        function populateTargetPlayerDropdown() {
+            if (userType === 'storyteller' && players.length > 0) {
+                const targetSelect = document.getElementById('targetPlayer');
+                targetSelect.innerHTML = '<option value="">Select player...</option>';
+                players.forEach(player => {
+                    const option = document.createElement('option');
+                    option.value = player;
+                    option.textContent = player;
+                    targetSelect.appendChild(option);
+                });
+            }
+        }
+
+        function getRoleById(roleId) {
+            return ROLES[roleId] || null;
+        }
+
+        function getScriptRoles(script) {
+            if (!script || !script.roles) return [];
+            return script.roles.map(roleId => ROLES[roleId]).filter(role => role);
+        }
+
+        function openRoleAssignmentModal(playerName) {
+            selectedPlayerForRole = playerName;
+
+            const modal = document.getElementById('roleAssignmentModal');
+            const title = document.getElementById('roleAssignmentTitle');
+            const roleSelect = document.getElementById('roleSelect');
+
+            title.textContent = `Assign Role to ${playerName}`;
+
+            // Populate role dropdown
+            roleSelect.innerHTML = '<option value="">No role assigned</option>';
+
+            if (currentScript) {
+                // Group roles by team
+                const rolesByTeam = {
+                    townsfolk: [],
+                    outsider: [],
+                    minion: [],
+                    demon: []
+                };
+
+                getScriptRoles(currentScript).forEach(role => {
+                    rolesByTeam[role.team].push(role);
+                });
+
+                // Add roles grouped by team
+                const teamNames = {
+                    townsfolk: '👥 Townsfolk',
+                    outsider: '🚪 Outsiders',
+                    minion: '😈 Minions',
+                    demon: '👹 Demons'
+                };
+
+                Object.entries(rolesByTeam).forEach(([team, roles]) => {
+                    if (roles.length > 0) {
+                        const optgroup = document.createElement('optgroup');
+                        optgroup.label = teamNames[team];
+
+                        roles.forEach(role => {
+                            const option = document.createElement('option');
+                            option.value = role.id;
+                            option.textContent = role.name;
+                            optgroup.appendChild(option);
+                        });
+
+                        roleSelect.appendChild(optgroup);
+                    }
+                });
+            }
+
+            // Set current role if any
+            if (playerRoles[playerName]) {
+                roleSelect.value = playerRoles[playerName];
+            }
+
+            modal.classList.remove('hidden');
+        }
+
+        function closeRoleAssignmentModal() {
+            document.getElementById('roleAssignmentModal').classList.add('hidden');
+            selectedPlayerForRole = null;
+        }
+
+        function confirmRoleAssignment() {
+            if (!selectedPlayerForRole) return;
+
+            const roleSelect = document.getElementById('roleSelect');
+            const selectedRole = roleSelect.value || null;
+
+            // Update local state
+            playerRoles[selectedPlayerForRole] = selectedRole;
+
+            // Broadcast role assignment to other storytellers (if any)
+            pubnub.publish({
+                channel: currentRoom,
+                message: {
+                    gameId: currentGameId,
+                    type: 'role_assignment',
+                    playerRoles: playerRoles,
+                    timestamp: Date.now()
+                }
+            });
+
+            updatePlayersList();
+            closeRoleAssignmentModal();
+        }
+
+        function randomlyAssignAllRoles() {
+            if (!currentScript || players.length === 0) {
+                alert('No script loaded or no players');
+                return;
+            }
+
+            const playerCount = players.length;
+            let setup;
+
+            // Find setup for this player count
+            if (currentScript.setup && currentScript.setup[playerCount]) {
+                setup = currentScript.setup[playerCount];
+            } else {
+                alert(`No setup defined for ${playerCount} players in this script`);
+                return;
+            }
+
+            // Get available roles by team
+            const rolesByTeam = {
+                townsfolk: getScriptRoles(currentScript).filter(r => r.team === 'townsfolk'),
+                outsider: getScriptRoles(currentScript).filter(r => r.team === 'outsider'),
+                minion: getScriptRoles(currentScript).filter(r => r.team === 'minion'),
+                demon: getScriptRoles(currentScript).filter(r => r.team === 'demon')
+            };
+
+            // Randomly select roles based on setup
+            const selectedRoles = [];
+
+            Object.entries(setup).forEach(([team, count]) => {
+                const availableRoles = [...rolesByTeam[team]]; // Copy array
+
+                for (let i = 0; i < count; i++) {
+                    if (availableRoles.length > 0) {
+                        const randomIndex = Math.floor(Math.random() * availableRoles.length);
+                        const selectedRole = availableRoles.splice(randomIndex, 1)[0];
+                        selectedRoles.push(selectedRole);
+                    }
+                }
+            });
+
+            // Shuffle selected roles
+            for (let i = selectedRoles.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [selectedRoles[i], selectedRoles[j]] = [selectedRoles[j], selectedRoles[i]];
+            }
+
+            // Assign roles to players
+            const shuffledPlayers = [...players];
+            for (let i = shuffledPlayers.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [shuffledPlayers[i], shuffledPlayers[j]] = [shuffledPlayers[j], shuffledPlayers[i]];
+            }
+
+            // Clear existing assignments
+            initializePlayerRoles();
+
+            // Assign roles
+            for (let i = 0; i < Math.min(shuffledPlayers.length, selectedRoles.length); i++) {
+                playerRoles[shuffledPlayers[i]] = selectedRoles[i].id;
+            }
+
+            // Broadcast the new assignments
+            pubnub.publish({
+                channel: currentRoom,
+                message: {
+                    gameId: currentGameId,
+                    type: 'role_assignment',
+                    playerRoles: playerRoles,
+                    timestamp: Date.now()
+                }
+            });
+
+            updatePlayersList();
+            closeRoleAssignmentModal();
+        }
+
+
+
+        // Template Functions
+        function useNightActionTemplate() {
+            const targetPlayer = document.getElementById('targetPlayer').value;
+            if (!targetPlayer) {
+                alert('Please select a target player first');
+                return;
+            }
+
+            const roleId = playerRoles[targetPlayer];
+            if (!roleId) {
+                alert('Selected player has no assigned role');
+                return;
+            }
+
+            const role = getRoleById(roleId);
+            if (!role || !role.nightActionTemplates || role.nightActionTemplates.length === 0) {
+                alert('This role has no night action templates available');
+                return;
+            }
+
+
+            // If there's only one template, use it directly
+            if (role.nightActionTemplates.length === 1) {
+                const template = role.nightActionTemplates[0];
+                processNightActionTemplate(template, targetPlayer, role);
+            } else {
+                // Show template selection modal
+                showTemplateSelectionModal(role.nightActionTemplates, targetPlayer, role);
+            }
+        }
+
+        function showTemplateSelectionModal(templates, targetPlayer, role) {
+            // Create a simple selection using confirm dialogs for now
+            // In a more sophisticated UI, this could be a proper modal
+            let templateChoices = templates.map((template, index) => {
+                const displayText = template[0]; // First string is what storyteller sees
+                return `${index + 1}. ${displayText}`;
+            }).join('\n');
+
+            const choice = prompt(`Choose a template for ${targetPlayer} (${role.name}):\n\n${templateChoices}\n\nEnter number (1-${templates.length}):`);
+
+            if (choice === null) {
+                return; // User cancelled
+            }
+
+            const templateIndex = parseInt(choice) - 1;
+            if (isNaN(templateIndex) || templateIndex < 0 || templateIndex >= templates.length) {
+                alert('Invalid choice. Please try again.');
+                return;
+            }
+
+            const selectedTemplate = templates[templateIndex];
+            processNightActionTemplate(selectedTemplate, targetPlayer, role);
+        }
+
+        function processNightActionTemplate(template, targetPlayer, role) {
+            if (template.length === 1) {
+                // Storyteller info template - just send info to player
+                const templateText = template[0];
+
+                currentTemplate = {
+                    type: 'storyteller_info',
+                    template: templateText,
+                    to: targetPlayer,
+                    fields: extractTemplateFields(templateText)
+                };
+
+                showTemplateUI();
+            } else if (template.length === 2) {
+                // Player prompt template - send prompt and expect response
+                const promptText = template[0];
+                const responseTemplate = template[1];
+
+                currentTemplate = {
+                    type: 'player_prompt',
+                    promptText: promptText,
+                    responseTemplate: responseTemplate,
+                    to: targetPlayer,
+                    fields: extractTemplateFields(responseTemplate)
+                };
+
+                showTemplateUI();
+            }
+        }
+
+        function extractTemplateFields(templateText) {
+            const fields = [];
+            const fieldRegex = /\{(\w+)\}/g;
+            let match;
+
+            while ((match = fieldRegex.exec(templateText)) !== null) {
+                const fieldName = match[1];
+                if (!fields.find(f => f.name === fieldName)) {
+                    let fieldType = fieldName;
+
+                    // Map common field names to types
+                    if (fieldName.startsWith('player')) {
+                        fieldType = 'player';
+                    } else if (fieldName.startsWith('bluff_role')) {
+                        fieldType = 'bluff_role';
+                    } else if (fieldName.startsWith('good_role')) {
+                        fieldType = 'good_role';
+                    }
+
+                    fields.push({ name: fieldName, type: fieldType });
+                }
+            }
+
+            return fields;
+        }
+
+        function is_role(fieldType) {
+            return fieldType === 'role' || fieldType.includes('_role');
+        }
+
+        function useSimpleTemplate(template, fieldType) {
+            const targetPlayer = document.getElementById('targetPlayer').value;
+            if (!targetPlayer) {
+                alert('Please select a target player first');
+                return;
+            }
+
+            currentTemplate = {
+                type: 'storyteller_info',
+                template: template,
+                to: targetPlayer,
+                fields: [{ name: fieldType, type: fieldType }]
+            };
+
+            showTemplateUI();
+        }
+
+        function usePromptTemplate(promptText, responseTemplate, fieldTypes) {
+            const targetPlayer = document.getElementById('targetPlayer').value;
+            if (!targetPlayer) {
+                alert('Please select a target player first');
+                return;
+            }
+
+            currentTemplate = {
+                type: 'player_prompt',
+                promptText: promptText,
+                responseTemplate: responseTemplate,
+                to: targetPlayer,
+                fields: fieldTypes.map(type => ({ name: type, type: type }))
+            };
+
+            showTemplateUI();
+        }
+
+        function showTemplateUI() {
+            const templateUI = document.getElementById('templateUI');
+            const templateTitle = document.getElementById('templateTitle');
+            const templateFields = document.getElementById('templateFields');
+
+            templateUI.classList.remove('hidden');
+
+            if (currentTemplate.type === 'storyteller_info') {
+                templateTitle.textContent = `Send Info to ${currentTemplate.to}`;
+                templateFields.innerHTML = '';
+
+                // Create inline template with embedded form fields
+                const templateContainer = document.createElement('div');
+                templateContainer.className = 'inline-template';
+                templateContainer.style.fontSize = '1.1rem';
+                templateContainer.style.lineHeight = '1.8';
+                templateContainer.style.padding = '15px';
+                templateContainer.style.background = 'rgba(0,0,0,0.2)';
+                templateContainer.style.borderRadius = '8px';
+
+                templateContainer.innerHTML = createInlineTemplate(currentTemplate.template);
+                templateFields.appendChild(templateContainer);
+
+            } else if (currentTemplate.type === 'player_prompt') {
+                templateTitle.textContent = `Send Prompt to ${currentTemplate.to}`;
+                templateFields.innerHTML = '';
+
+                const promptContainer = document.createElement('div');
+                promptContainer.innerHTML = `<p><strong>You will send:</strong> "${currentTemplate.promptText}"</p>`;
+                templateFields.appendChild(promptContainer);
+
+                // The code below would provide the storyteller with a rendered view (as in combo boxes)
+                // of what the player will see when they compose their response. However, such a
+                // preview is really overkill for our purposes, and so I have guarded it by an if-false.
+                if (false && currentTemplate.fields.length > 0) {
+                    const responseContainer = document.createElement('div');
+                    responseContainer.className = 'inline-template';
+                    responseContainer.style.fontSize = '1.1rem';
+                    responseContainer.style.lineHeight = '1.8';
+                    responseContainer.style.padding = '15px';
+                    responseContainer.style.background = 'rgba(0,0,0,0.2)';
+                    responseContainer.style.borderRadius = '8px';
+                    responseContainer.style.marginTop = '10px';
+
+                    const responseLabel = document.createElement('p');
+                    responseLabel.innerHTML = '<strong>Player will respond with:</strong>';
+                    responseLabel.style.marginBottom = '10px';
+                    templateFields.appendChild(responseLabel);
+
+                    responseContainer.innerHTML = createInlineTemplate(currentTemplate.responseTemplate);
+                    templateFields.appendChild(responseContainer);
+                }
+            }
+        }
+
+        function createInlineTemplate(templateText) {
+            let html = templateText;
+
+            // Replace each placeholder with an appropriate form field
+            currentTemplate.fields.forEach(field => {
+                const placeholder = `{${field.name}}`;
+                let fieldHtml = '';
+
+                if (field.type === 'player') {
+                    fieldHtml = '<select id="field_' + field.name + '" style="margin: 0 5px; padding: 4px; border-radius: 4px; border: 1px solid #ccc;">';
+                    fieldHtml += '<option value="">Select player...</option>';
+                    players.forEach(player => {
+                        fieldHtml += `<option value="${player}">${player}</option>`;
+                    });
+                    fieldHtml += '</select>';
+
+                } else if (is_role(field.type)) {
+                    fieldHtml = '<select id="field_' + field.name + '" style="margin: 0 5px; padding: 4px; border-radius: 4px; border: 1px solid #ccc;">';
+                    fieldHtml += '<option value="">Select role...</option>';
+                    if (currentScript) {
+                        let availableRoles = getScriptRoles(currentScript);
+                        const defaultGoodTeamRoles = ['townsfolk', 'outsider']
+
+                        // Filter roles based on field type
+                        if (field.type === 'townsfolk_role') {
+                            availableRoles = availableRoles.filter(role => role.team === 'townsfolk');
+                        } else if (field.type === 'outsider_role') {
+                            availableRoles = availableRoles.filter(role => role.team === 'outsider');
+                        } else if (field.type === 'minion_role') {
+                            availableRoles = availableRoles.filter(role => role.team === 'minion');
+                        } else if (field.type === 'demon_role') {
+                            availableRoles = availableRoles.filter(role => role.team === 'demon');
+                        } else if (field.type === 'good_role') {
+                            availableRoles = availableRoles.filter((role) => {
+                                return defaultGoodTeamRoles.includes(role.team);
+                            });
+                        } else if (field.type === 'bluff_role') {
+                            availableRoles = availableRoles.filter((role) => {
+                                let inPlayGoodRoles = []
+                                const defaultGoodTeamRoles = ['townsfolk', 'outsider']
+                                players.forEach(player => {
+                                    const roleId = playerRoles[player];
+                                    if (roleId) {
+                                        const role = getRoleById(roleId);
+                                        if (role) {
+                                            if (defaultGoodTeamRoles.includes(role.team)) {
+                                                inPlayGoodRoles.push(roleId)
+                                            }
+                                        }
+                                    }
+                                })
+                                return defaultGoodTeamRoles.includes(role.team) && !inPlayGoodRoles.includes(role.id);
+                            })
+                        }
+                        // field.type === 'role' shows all roles (no filtering)
+                        availableRoles.forEach(role => {
+                            fieldHtml += `<option value="${role.id}">${role.name}</option>`;
+                        });
+
+                    }
+                    fieldHtml += '</select>';
+
+                } else if (field.type === 'yesno') {
+                    fieldHtml = '<select id="field_' + field.name + '" style="margin: 0 5px; padding: 4px; border-radius: 4px; border: 1px solid #ccc;">';
+                    fieldHtml += '<option value="">Choose...</option>';
+                    fieldHtml += '<option value="Yes">Yes</option>';
+                    fieldHtml += '<option value="No">No</option>';
+                    fieldHtml += '</select>';
+                } else if (field.type === 'goodevil') {
+                    fieldHtml = '<select id="field_' + field.name + '" style="margin: 0 5px; padding: 4px; border-radius: 4px; border: 1px solid #ccc;">';
+                    fieldHtml += '<option value="">Choose...</option>';
+                    fieldHtml += '<option value="Good">Good</option>';
+                    fieldHtml += '<option value="Evil">Evil</option>';
+                    fieldHtml += '</select>';
+                } else if (field.type === 'number') {
+                    fieldHtml = `<input type="number" id="field_${field.name}" placeholder="${field.name}" style="margin: 0 5px; padding: 4px; border-radius: 4px; border: 1px solid #ccc; width: 80px;">`;
+
+                } else {
+                    fieldHtml = `<input type="text" id="field_${field.name}" placeholder="${field.name}" style="margin: 0 5px; padding: 4px; border-radius: 4px; border: 1px solid #ccc; width: 120px;">`;
+                }
+
+                html = html.replace(placeholder, fieldHtml);
+            });
+
+            return html;
+        }
+
+        function sendTemplateMessage() {
+            if (!currentTemplate) return;
+
+            let messageContent;
+            let templateData = {};
+
+            if (currentTemplate.type === 'storyteller_info') {
+                // First: Validate ALL fields before processing ANY
+                for (const field of currentTemplate.fields) {
+                    const inputEl = document.getElementById(`field_${field.name}`);
+                    const value = inputEl.value;
+
+                    if (!value) {
+                        alert(`Please fill in ${field.name}`);
+                        return; // Actually exits the function
+                    }
+                }
+
+                // Process storyteller template
+                messageContent = currentTemplate.template;
+
+                currentTemplate.fields.forEach(field => {
+                    const inputEl = document.getElementById(`field_${field.name}`);
+                    const value = inputEl.value;
+                    // we know value is present (and truthy) because we checked it above
+
+                    templateData[field.name] = value;
+
+                    // Replace placeholder in message
+                    if (is_role(field.type) && currentScript) {
+                        const role = getRoleById(value);
+                        if (role) {
+                            messageContent = messageContent.replace(`{${field.name}}`, role.name);
+                        } else {
+                            console.log('Role not found for ID:', value);
+                            messageContent = messageContent.replace(`{${field.name}}`, value);
+                        }
+                    } else {
+                        messageContent = messageContent.replace(`{${field.name}}`, value);
+                    }
+                });
+
+            } else if (currentTemplate.type === 'player_prompt') {
+                messageContent = currentTemplate.promptText;
+                templateData.responseTemplate = currentTemplate.responseTemplate;
+                templateData.responseFields = currentTemplate.fields;
+            }
+
+            const message = {
+                gameId: currentGameId,
+                type: 'private_message',
+                messageType: currentTemplate.type === 'storyteller_info' ? 'info' : 'prompt',
+                from: currentUser,
+                to: currentTemplate.to,
+                content: messageContent,
+                templateData: templateData,
+                timestamp: Date.now()
+            };
+
+            // Display locally first (as "sending")
+            displayMessage(message, true);
+            sentMessages.set(message.timestamp, true);
+
+            pubnub.publish({
+                channel: currentRoom,
+                message: message
+            });
+
+            cancelTemplate();
+        }
+
+        function cancelTemplate() {
+            currentTemplate = null;
+            document.getElementById('templateUI').classList.add('hidden');
+            document.getElementById('responsePreview').classList.add('hidden');
+        }
+
+        function sendFreeMessage() {
+            const messageInput = document.getElementById('messageInput');
+            const messageText = messageInput.value.trim();
+
+            if (!messageText || !isConnected) return;
+
+            let to = 'Storyteller';
+            if (userType === 'storyteller') {
+                to = document.getElementById('targetPlayer').value;
+                if (!to) {
+                    alert('Please select a target player');
+                    return;
+                }
+            }
+
+            const message = {
+                gameId: currentGameId,
+                type: 'private_message',
+                messageType: 'response',
+                from: currentUser,
+                to: to,
+                content: messageText,
+                timestamp: Date.now()
+            };
+
+            // Display locally first (as "sending")
+            displayMessage(message, true);
+            sentMessages.set(message.timestamp, true);
+
+            pubnub.publish({
+                channel: currentRoom,
+                message: message
+            });
+
+            messageInput.value = '';
+        }
+
+        function displayMessage(message, isLocalSend = false) {
+            // Only show messages for current user
+            if (message.to !== currentUser && message.from !== currentUser) {
+                return;
+            }
+
+            const messagesContainer = document.getElementById('messages');
+            const messageEl = document.createElement('div');
+
+            messageEl.className = 'message';
+            if (message.from === 'Storyteller' || userType === 'player' && message.from !== currentUser) {
+                messageEl.classList.add('from-storyteller');
+            } else {
+                messageEl.classList.add('from-player');
+            }
+
+            const headerEl = document.createElement('div');
+            headerEl.className = 'message-header';
+            const time = new Date(message.timestamp).toLocaleTimeString();
+
+            let statusIcon = '';
+            if (isLocalSend) {
+                statusIcon = ' ⏳'; // Sending indicator
+            } else if (message.from === currentUser) {
+                statusIcon = ' ✓'; // Delivered indicator
+            }
+
+            headerEl.innerHTML = `${message.from} → ${message.to} (${time})<span class="delivery-status">${statusIcon}</span>`;
+
+            const contentEl = document.createElement('div');
+            contentEl.textContent = message.content;
+
+            // Store reference for delivery confirmation
+            messageEl.dataset.timestamp = message.timestamp;
+            messageEl.appendChild(headerEl);
+            messageEl.appendChild(contentEl);
+
+            // Add response UI for prompts
+            if (message.messageType === 'prompt' && message.to === currentUser && userType === 'player') {
+                const responseData = message.templateData;
+                if (responseData && responseData.responseTemplate) {
+                    const responseUI = createResponseUI(responseData, message);
+                    messageEl.appendChild(responseUI);
+                }
+            }
+
+            messagesContainer.appendChild(messageEl);
+            messagesContainer.scrollTop = messagesContainer.scrollHeight;
+        }
+
+        function setDayPhase() {
+            isNightTime = false;
+            updatePhaseUI();
+            updatePlayerMessageVisibility();
+        }
+
+        function setNightPhase() {
+            isNightTime = true;
+            dayNightCounter++;
+            updatePhaseUI();
+            updatePlayerMessageVisibility();
+        }
+
+        function updatePhaseUI() {
+            const button = document.getElementById('phaseToggle');
+            if (button) {
+                button.textContent = isNightTime ? 'Day Breaks' : 'Night Falls';
+                button.style.background = isNightTime ?
+                    'linear-gradient(45deg, #ffd93d, #f39c12)' :
+                    'linear-gradient(45deg, #4a90e2, #357abd)';
+            }
+
+            const timeSpan = document.getElementById('displayTime');
+            if (timeSpan) {
+                timeSpan.textContent = `${isNightTime ? 'Night' : 'Day'} ${dayNightCounter}`
+            }
+        }
+
+        function updatePlayerMessageVisibility() {
+            if (userType !== 'player') return;
+
+            const messagesContainer = document.getElementById('messages');
+            if (!messagesContainer) return;
+
+            const messageElements = messagesContainer.querySelectorAll('.message');
+            messageElements.forEach(messageEl => {
+                messageEl.style.display = isNightTime ? 'block' : 'none';
+            });
+        }
+
+        function markMessageDelivered(timestamp) {
+            // Find the message element and update its delivery status
+            const messageEl = document.querySelector(`[data-timestamp="${timestamp}"]`);
+            if (messageEl) {
+                const headerEl = messageEl.querySelector('.message-header');
+                headerEl.innerHTML = headerEl.innerHTML.replace('⏳', '✓');
+            }
+        }
+
+        function createResponseUI(responseData, originalMessage) {
+            const responseDiv = document.createElement('div');
+            responseDiv.className = 'template-ui';
+            responseDiv.style.marginTop = '10px';
+
+            const title = document.createElement('h4');
+            title.textContent = 'Your Response:';
+            responseDiv.appendChild(title);
+
+            const fieldsDiv = document.createElement('div');
+
+            responseData.responseFields.forEach(field => {
+                const fieldDiv = document.createElement('div');
+                fieldDiv.className = 'template-field';
+
+                const label = document.createElement('label');
+                label.textContent = field.name.charAt(0).toUpperCase() + field.name.slice(1) + ':';
+
+                let input;
+                if (field.type === 'player') {
+                    input = document.createElement('select');
+                    input.innerHTML = '<option value="">Select player...</option>';
+                    players.forEach(player => {
+                        const option = document.createElement('option');
+                        option.value = player;
+                        option.textContent = player;
+                        input.appendChild(option);
+                    });
+                } else {
+                    input = document.createElement('input');
+                    input.type = 'text';
+                    input.placeholder = `Enter ${field.name}...`;
+                }
+
+                input.className = 'response-field';
+                input.dataset.fieldName = field.name;
+
+                // Update preview on change
+                input.addEventListener('input', () => updateResponsePreview(responseDiv, responseData));
+                input.addEventListener('change', () => updateResponsePreview(responseDiv, responseData));
+
+                fieldDiv.appendChild(label);
+                fieldDiv.appendChild(input);
+                fieldsDiv.appendChild(fieldDiv);
+            });
+
+            responseDiv.appendChild(fieldsDiv);
+
+            // Preview area
+            const previewDiv = document.createElement('div');
+            previewDiv.className = 'response-preview';
+            previewDiv.textContent = 'Fill in the fields to see your response...';
+            responseDiv.appendChild(previewDiv);
+
+            // Send button
+            const sendBtn = document.createElement('button');
+            sendBtn.textContent = 'Send Response';
+            sendBtn.onclick = () => sendPlayerResponse(responseDiv, responseData, originalMessage);
+            responseDiv.appendChild(sendBtn);
+
+            return responseDiv;
+        }
+
+        function updateResponsePreview(responseDiv, responseData) {
+            const preview = responseDiv.querySelector('.response-preview');
+            const fields = responseDiv.querySelectorAll('.response-field');
+
+            let responseText = responseData.responseTemplate;
+            let allFilled = true;
+
+            fields.forEach(field => {
+                const fieldName = field.dataset.fieldName;
+                const value = field.value;
+
+                if (value) {
+                    responseText = responseText.replace(`{${fieldName}}`, value);
+                } else {
+                    allFilled = false;
+                }
+            });
+
+            if (allFilled) {
+                preview.textContent = `"${responseText}"`;
+                preview.style.color = '#26de81';
+            } else {
+                preview.textContent = responseText;
+                preview.style.color = '#ffd93d';
+            }
+        }
+
+        function sendPlayerResponse(responseDiv, responseData, originalMessage) {
+            const fields = responseDiv.querySelectorAll('.response-field');
+            const fieldData = {};
+            let responseText = responseData.responseTemplate;
+            let allFilled = true;
+
+            fields.forEach(field => {
+                const fieldName = field.dataset.fieldName;
+                const value = field.value;
+
+                if (!value) {
+                    allFilled = false;
+                } else {
+                    fieldData[fieldName] = value;
+                    responseText = responseText.replace(`{${fieldName}}`, value);
+                }
+            });
+
+            if (!allFilled) {
+                alert('Please fill in all fields');
+                return;
+            }
+
+            const message = {
+                gameId: currentGameId,
+                type: 'private_message',
+                messageType: 'response',
+                from: currentUser,
+                to: originalMessage.from,
+                content: responseText,
+                respondingTo: originalMessage.timestamp,
+                templateData: fieldData,
+                timestamp: Date.now()
+            };
+
+            // Display locally first (as "sending")
+            displayMessage(message, true);
+            sentMessages.set(message.timestamp, true);
+
+            pubnub.publish({
+                channel: currentRoom,
+                message: message
+            });
+
+            // Disable the response UI
+            responseDiv.style.opacity = '0.5';
+            responseDiv.style.pointerEvents = 'none';
+            const sendBtn = responseDiv.querySelector('button');
+            if (sendBtn) sendBtn.textContent = 'Response Sent';
+        }
+
+        // Script Viewer Functions
+        function toggleScriptViewer() {
+            const viewer = document.getElementById('scriptViewer');
+            viewer.classList.toggle('hidden');
+
+            if (!viewer.classList.contains('hidden') && currentScript) {
+                updateScriptViewer();
+            }
+        }
+
+        function updateScriptViewer() {
+            if (!currentScript) return;
+
+            const title = document.getElementById('scriptViewerTitle');
+            const content = document.getElementById('scriptContent');
+
+            title.textContent = currentScript.name;
+
+            // Group roles by team
+            const rolesByTeam = {
+                townsfolk: [],
+                outsider: [],
+                minion: [],
+                demon: []
+            };
+
+            getScriptRoles(currentScript).forEach(role => {
+                rolesByTeam[role.team].push(role);
+            });
+
+            // Build content
+            let html = `
+                <div style="margin-bottom: 15px;">
+                    <strong>Author:</strong> ${currentScript.author || 'Unknown'}<br>
+                    <strong>Description:</strong> ${currentScript.description || 'No description'}
+                </div>
+                <div class="script-viewer-content">
+            `;
+
+            // Render each team
+            const teamInfo = {
+                townsfolk: { name: 'Townsfolk', class: 'team-townsfolk' },
+                outsider: { name: 'Outsiders', class: 'team-outsider' },
+                minion: { name: 'Minions', class: 'team-minion' },
+                demon: { name: 'Demons', class: 'team-demon' }
+            };
+
+            Object.entries(rolesByTeam).forEach(([team, roles]) => {
+                if (roles.length > 0) {
+                    const info = teamInfo[team];
+                    html += `
+                        <div class="team-section">
+                            <div class="team-header ${info.class}">
+                                ${info.name} (${roles.length})
+                            </div>
+                    `;
+
+                    roles.forEach(role => {
+                        let timing = '';
+                        if (role.firstNight && role.otherNights) {
+                            timing = 'Acts first night and other nights';
+                        } else if (role.firstNight) {
+                            timing = 'Acts first night only';
+                        } else if (role.otherNights) {
+                            timing = 'Acts other nights only';
+                        } else {
+                            timing = 'Passive ability';
+                        }
+
+                        html += `
+                            <div class="role-card ${team}">
+                                <div class="role-name">${role.name}</div>
+                                <div class="role-ability">${role.ability}</div>
+                                <div class="role-timing">${timing}</div>
+                            </div>
+                        `;
+                    });
+
+                    html += '</div>';
+                }
+            });
+
+            html += '</div>';
+            content.innerHTML = html;
+        }
+
+        // Handle Enter key in message input
+        document.getElementById('messageInput').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                sendFreeMessage();
+            }
+        });
+
+        // Initialize setup screen
+        document.getElementById('userType').dispatchEvent(new Event('change'));
+
+      // generateRoomId(); // Temporarily disabled to preserve default room ID
+
+      populateScriptDropdown();
+
+        // Role Selection Functions
+        function showRoleSelectionScreen() {
+            document.getElementById('setupScreen').classList.add('hidden');
+            document.getElementById('roleSelectionScreen').classList.remove('hidden');
+
+            document.getElementById('roleSelectionScript').textContent = currentScript.name;
+            document.getElementById('roleSelectionPlayerCount').textContent = players.length;
+
+            // Initialize PubNub connection and send game setup so players can join during role selection
+            currentUser = 'Storyteller';
+            initializePlayerRoles();
+            initializePubNub();
+            mostRecentSetupTimestamp = Date.now();
+
+            // Show target distribution
+            updateDistributionDisplay();
+
+            // Populate role selection UI
+            populateRoleSelectionUI();
+
+            // Initialize empty selection
+            selectedRoles = [];
+            updateSelectionCounts();
+        }
+
+        function updateDistributionDisplay() {
+            const display = document.getElementById('distributionDisplay');
+            display.innerHTML = `
+                Townsfolk: ${targetDistribution.townsfolk} |
+                Outsiders: ${targetDistribution.outsider} |
+                Minions: ${targetDistribution.minion} |
+                Demons: ${targetDistribution.demon}
+            `;
+        }
+
+        function populateRoleSelectionUI() {
+            const teams = ['townsfolk', 'outsider', 'minion', 'demon'];
+
+            teams.forEach(team => {
+                const container = document.getElementById(`${team}Roles`);
+                container.innerHTML = '';
+
+                const teamRoles = getScriptRoles(currentScript).filter(role => role.team === team);
+
+                teamRoles.forEach(role => {
+                    const roleCard = document.createElement('div');
+                    roleCard.className = `role-selection-card ${team}`;
+                    roleCard.dataset.roleId = role.id;
+                    roleCard.onclick = () => toggleRoleSelection(role.id);
+
+                    roleCard.innerHTML = `
+                        <div class="role-selection-name">${role.name}</div>
+                        <div class="role-selection-ability">${role.ability}</div>
+                    `;
+
+                    container.appendChild(roleCard);
+                });
+            });
+        }
+
+        function toggleRoleSelection(roleId) {
+            const roleCard = document.querySelector(`[data-role-id="${roleId}"]`);
+            const isSelected = selectedRoles.includes(roleId);
+
+            if (isSelected) {
+                selectedRoles = selectedRoles.filter(id => id !== roleId);
+                roleCard.classList.remove('selected');
+            } else {
+                selectedRoles.push(roleId);
+                roleCard.classList.add('selected');
+            }
+
+            updateSelectionCounts();
+        }
+
+        function updateSelectionCounts() {
+            const counts = { townsfolk: 0, outsider: 0, minion: 0, demon: 0 };
+
+            selectedRoles.forEach(roleId => {
+                const role = getScriptRoles(currentScript).find(r => r.id === roleId);
+                if (role) {
+                    counts[role.team]++;
+                }
+            });
+
+            // Update count displays and styling
+            ['townsfolk', 'outsider', 'minion', 'demon'].forEach(team => {
+                const countEl = document.getElementById(`${team}Count`);
+                const targetEl = document.getElementById(`${team}Target`);
+
+                countEl.textContent = counts[team];
+                targetEl.textContent = targetDistribution[team];
+
+                // Update styling based on match
+                const headerEl = countEl.closest('.team-header');
+                headerEl.classList.remove('distribution-match', 'distribution-over', 'distribution-under');
+
+                if (counts[team] === targetDistribution[team]) {
+                    headerEl.classList.add('distribution-match');
+                } else if (counts[team] > targetDistribution[team]) {
+                    headerEl.classList.add('distribution-over');
+                } else {
+                    headerEl.classList.add('distribution-under');
+                }
+            });
+
+            // Update overall status
+            updateSelectionStatus(counts);
+        }
+
+        function updateSelectionStatus(counts) {
+            const statusEl = document.getElementById('currentSelectionStatus');
+            const totalSelected = Object.values(counts).reduce((a, b) => a + b, 0);
+            const totalTarget = Object.values(targetDistribution).reduce((a, b) => a + b, 0);
+
+            let statusText = `Selected: ${totalSelected}/${totalTarget} roles`;
+            let statusClass = 'status ';
+
+            if (totalSelected === totalTarget) {
+                const isExactMatch = ['townsfolk', 'outsider', 'minion', 'demon'].every(
+                    team => counts[team] === targetDistribution[team]
+                );
+
+                if (isExactMatch) {
+                    statusText += ' - Perfect match! ✓';
+                    statusClass += 'connected';
+                } else {
+                    statusText += ' - Total matches, but distribution differs';
+                    statusClass += 'status'; // neutral
+                }
+            } else {
+                statusClass += 'disconnected';
+            }
+
+            statusEl.textContent = statusText;
+            statusEl.className = statusClass;
+        }
+
+        function randomlySelectRoles() {
+            // Clear current selection
+            selectedRoles = [];
+            document.querySelectorAll('.role-selection-card.selected').forEach(card => {
+                card.classList.remove('selected');
+            });
+
+            // Select roles randomly based on distribution
+            const rolesByTeam = {
+                townsfolk: getScriptRoles(currentScript).filter(r => r.team === 'townsfolk'),
+                outsider: getScriptRoles(currentScript).filter(r => r.team === 'outsider'),
+                minion: getScriptRoles(currentScript).filter(r => r.team === 'minion'),
+                demon: getScriptRoles(currentScript).filter(r => r.team === 'demon')
+            };
+
+            Object.entries(targetDistribution).forEach(([team, count]) => {
+                const availableRoles = [...rolesByTeam[team]];
+
+                for (let i = 0; i < count && availableRoles.length > 0; i++) {
+                    const randomIndex = Math.floor(Math.random() * availableRoles.length);
+                    const selectedRole = availableRoles.splice(randomIndex, 1)[0];
+                    selectedRoles.push(selectedRole.id);
+
+                    const roleCard = document.querySelector(`[data-role-id="${selectedRole.id}"]`);
+                    roleCard.classList.add('selected');
+                }
+            });
+
+            updateSelectionCounts();
+        }
+
+        function clearAllRoles() {
+            selectedRoles = [];
+            document.querySelectorAll('.role-selection-card.selected').forEach(card => {
+                card.classList.remove('selected');
+            });
+            updateSelectionCounts();
+        }
+
+        function goBackToSetup() {
+            document.getElementById('roleSelectionScreen').classList.add('hidden');
+            document.getElementById('setupScreen').classList.remove('hidden');
+        }
+
+        function distributeSelectedRolesToPlayers() {
+            if (selectedRoles.length === 0 || players.length === 0) {
+                return;
+            }
+
+            // Create array of selected role objects
+            const rolesToDistribute = selectedRoles.map(roleId =>
+                getScriptRoles(currentScript).find(role => role.id === roleId)
+            ).filter(role => role); // Remove any undefined roles
+
+            // Shuffle the roles
+            for (let i = rolesToDistribute.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [rolesToDistribute[i], rolesToDistribute[j]] = [rolesToDistribute[j], rolesToDistribute[i]];
+            }
+
+            // Shuffle the players
+            const shuffledPlayers = [...players];
+            for (let i = shuffledPlayers.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [shuffledPlayers[i], shuffledPlayers[j]] = [shuffledPlayers[j], shuffledPlayers[i]];
+            }
+
+            // Clear existing assignments
+            initializePlayerRoles();
+
+            // Assign roles to players
+            for (let i = 0; i < Math.min(shuffledPlayers.length, rolesToDistribute.length); i++) {
+                playerRoles[shuffledPlayers[i]] = rolesToDistribute[i].id;
+            }
+
+        console.log('Roles distributed:', playerRoles); // Debug line
+        }
+
+        function proceedWithSelectedRoles() {
+            if (selectedRoles.length === 0) {
+                alert('Please select at least one role');
+                return;
+            }
+
+            // Hide the role selection screen
+            document.getElementById('roleSelectionScreen').classList.add('hidden');
+
+            // Automatically distribute the selected roles to players
+            distributeSelectedRolesToPlayers();
+
+            // Update the players list to show the assigned roles AFTER distribution
+            setTimeout(() => {
+                updatePlayersList();
+            }, 100);
+
+            // Populate target player dropdown for new games
+            const targetSelect = document.getElementById('targetPlayer');
+            targetSelect.innerHTML = '<option value="">Select player...</option>';
+            players.forEach(player => {
+                const option = document.createElement('option');
+                option.value = player;
+                option.textContent = player;
+                targetSelect.appendChild(option);
+            });
+
+            switchToGameScreen();
+
+            // Broadcast the role assignments
+            setTimeout(() => {
+                pubnub.publish({
+                    channel: currentRoom,
+                    message: {
+                        gameId: currentGameId,
+                        type: 'role_assignment',
+                        playerRoles: playerRoles,
+                        timestamp: Date.now()
+                    }
+                });
+        }, 1000);
+        }
+
+        function distributeAllRoles() {
+            if (!playerRoles || Object.keys(playerRoles).length === 0) {
+                alert('No roles assigned yet');
+                return;
+            }
+
+
+            // Check for roles with believesToBe property
+            const playersWithMisimpressions = [];
+
+            players.forEach(player => {
+                const roleId = playerRoles[player];
+                if (roleId) {
+                    const role = getRoleById(roleId);
+                    if (role && role.believesToBe) {
+                        playersWithMisimpressions.push({
+                            player: player,
+                            actualRole: role.name,
+                            believesToBe: role.believesToBe
+                        });
+                    }
+                }
+            });
+
+            // Check for duplicate role assignments
+            const roleAssignments = {};
+            const duplicateRoles = [];
+
+            players.forEach(player => {
+                const roleId = playerRoles[player];
+                if (roleId) {
+                    if (roleAssignments[roleId]) {
+                        // This role is already assigned to someone else
+                        if (!duplicateRoles.find(d => d.roleId === roleId)) {
+                            const role = getRoleById(roleId);
+                            duplicateRoles.push({
+                                roleId: roleId,
+                                roleName: role ? role.name : roleId,
+                                players: [roleAssignments[roleId]]
+                            });
+                        }
+                        duplicateRoles.find(d => d.roleId === roleId).players.push(player);
+                    } else {
+                        roleAssignments[roleId] = player;
+                    }
+                }
+            });
+
+            // If there are duplicate roles, show confirmation
+            if (duplicateRoles.length > 0) {
+                const duplicateList = duplicateRoles.map(d =>
+                    `• ${d.roleName}: ${d.players.join(', ')}`
+                ).join('\n');
+
+                const confirmMessage = `WARNING: The following roles are assigned to multiple players:\n\n${duplicateList}\n\nThis is usually a mistake. Are you sure you want to distribute roles with duplicates?`;
+
+                if (!confirm(confirmMessage)) {
+                    return; // Cancel distribution
+                }
+            }
+
+
+            // If there are players with misimpressions, show confirmation
+            if (playersWithMisimpressions.length > 0) {
+                const playerList = playersWithMisimpressions.map(p =>
+                    `• ${p.player} (actually ${p.actualRole}, believes to be ${p.believesToBe})`
+                ).join('\n');
+
+                const confirmMessage = `WARNING: The following players have roles where they should NOT know their true identity:\n\n${playerList}\n\nThese players should receive tokens for roles they believe they have, not their actual roles. Are you sure you want to distribute roles now?`;
+
+                if (!confirm(confirmMessage)) {
+                    return; // Cancel distribution
+                }
+            }
+
+
+
+
+            let sentCount = 0;
+
+            players.forEach(player => {
+                const roleId = playerRoles[player];
+                if (roleId) {
+                    const role = getRoleById(roleId);
+                    if (role) {
+                        // Determine team alignment
+                        const teamAlignment = (role.team === 'townsfolk' || role.team === 'outsider')
+                            ? 'You are good.'
+                            : 'You are evil.';
+
+                        const message = {
+                            gameId: currentGameId,
+                            type: 'private_message',
+                            messageType: 'info',
+                            from: currentUser,
+                            to: player,
+                            content: `Your role is ${role.name}. ${teamAlignment}`,
+                            templateData: { role: roleId },
+                            timestamp: Date.now() + sentCount // Slight offset to prevent timestamp collisions
+                        };
+
+                        // Display locally first (as "sending")
+                        displayMessage(message, true);
+                        sentMessages.set(message.timestamp, true);
+
+                        pubnub.publish({
+                            channel: currentRoom,
+                            message: message
+                        });
+
+                        sentCount++;
+                    }
+                }
+            });
+
+            if (sentCount > 0) {
+                alert(`Sent role assignments to ${sentCount} players`);
+            } else {
+                alert('No roles to distribute');
+            }
+        }
+
+        function distributeMinionAndDemonInfo() {
+            let sentCount = 0;
+            let demon = '';
+            let minions = [];
+
+            players.forEach(player => {
+                const roleId = playerRoles[player];
+                if (roleId) {
+                    const role = getRoleById(roleId);
+                    if (role?.team === 'demon') {
+                        demon = player
+                    } else if (role?.team === 'minion') {
+                        minions.push(player)
+                    }
+                }
+            });
+
+            // Send Demon Message
+            let messageForDemon = minions.length === 1 ? 'Your minion is ' : 'Your minions are '
+            messageForDemon += `${minions.join(', ')}.`;
+            const message = {
+                gameId: currentGameId,
+                type: 'private_message',
+                messageType: 'info',
+                from: currentUser,
+                to: demon,
+                content: messageForDemon,
+                timestamp: Date.now() + sentCount // Slight offset to prevent timestamp collisions
+            };
+
+            // Display locally first (as "sending")
+            displayMessage(message, true);
+            sentMessages.set(message.timestamp, true);
+
+            pubnub.publish({
+                channel: currentRoom,
+                message: message
+            });
+
+            sentCount++;
+
+            // Send Minion Messages
+            minions.forEach(minion => {
+                let messageForMinions = `The demon is ${demon}.`
+
+                if (minions.length > 1) {
+                    messageForMinions += minions.length === 2 ? ' The other minion is ' : ' The other minions are '
+
+                    const otherMinions = minions.filter(innerMinion => minion !== innerMinion)
+
+                    messageForMinions += `${otherMinions.join(', ')}.`
+                }
+
+                const message = {
+                    gameId: currentGameId,
+                    type: 'private_message',
+                    messageType: 'info',
+                    from: currentUser,
+                    to: minion,
+                    content: messageForMinions,
+                    timestamp: Date.now() + sentCount // Slight offset to prevent timestamp collisions
+                };
+
+                // Display locally first (as "sending")
+                displayMessage(message, true);
+                sentMessages.set(message.timestamp, true);
+
+                pubnub.publish({
+                    channel: currentRoom,
+                    message: message
+                });
+
+                sentCount++;
+            })
+
+            if (sentCount > 0) {
+                alert(`Sent minion/demon info to ${sentCount} players`);
+            } else {
+                alert('No minion/demon info to distribute');
+            }
+        }
+
+        function showChangeRoleModal() {
+            if (!selectedPlayerForRole) return;
+
+            const modal = document.getElementById('changeRoleModal');
+            const title = document.getElementById('changeRoleTitle');
+            const roleSelect = document.getElementById('roleSelect');
+
+            title.textContent = `Change Role for ${selectedPlayerForRole}`;
+
+            // Populate role dropdown (same logic as before)
+            roleSelect.innerHTML = '<option value="">No role assigned</option>';
+
+            if (currentScript) {
+                const rolesByTeam = {
+                    townsfolk: [],
+                    outsider: [],
+                    minion: [],
+                    demon: []
+                };
+
+                getScriptRoles(currentScript).forEach(role => {
+                    rolesByTeam[role.team].push(role);
+                });
+
+                const teamNames = {
+                    townsfolk: '👥 Townsfolk',
+                    outsider: '🚪 Outsiders',
+                    minion: '😈 Minions',
+                    demon: '👹 Demons'
+                };
+
+                Object.entries(rolesByTeam).forEach(([team, roles]) => {
+                    if (roles.length > 0) {
+                        const optgroup = document.createElement('optgroup');
+                        optgroup.label = teamNames[team];
+
+                        roles.forEach(role => {
+                            const option = document.createElement('option');
+                            option.value = role.id;
+                            option.textContent = role.name;
+                            optgroup.appendChild(option);
+                        });
+
+                        roleSelect.appendChild(optgroup);
+                    }
+                });
+            }
+
+            // Set current role if any
+            if (playerRoles[selectedPlayerForRole]) {
+                roleSelect.value = playerRoles[selectedPlayerForRole];
+            }
+
+            // Hide main modal and show change role modal
+            document.getElementById('roleAssignmentModal').classList.add('hidden');
+            modal.classList.remove('hidden');
+        }
+
+        function closeChangeRoleModal() {
+            document.getElementById('changeRoleModal').classList.add('hidden');
+            document.getElementById('roleAssignmentModal').classList.remove('hidden');
+        }
+
+        function confirmRoleChange() {
+            if (!selectedPlayerForRole) return;
+
+            const roleSelect = document.getElementById('roleSelect');
+            const selectedRole = roleSelect.value || null;
+
+            // Update local state
+            playerRoles[selectedPlayerForRole] = selectedRole;
+
+            // Broadcast role assignment
+            pubnub.publish({
+                channel: currentRoom,
+                message: {
+                    gameId: currentGameId,
+                    type: 'role_assignment',
+                    playerRoles: playerRoles,
+                    timestamp: Date.now()
+                }
+            });
+
+            updatePlayersList();
+            closeChangeRoleModal();
+            closeRoleAssignmentModal();
+        }
+
+        function showAddReminderModal() {
+            if (!selectedPlayerForRole) return;
+
+            const modal = document.getElementById('addReminderModal');
+            const title = document.getElementById('addReminderTitle');
+            const textArea = document.getElementById('reminderText');
+
+            title.textContent = `Add Reminder for ${selectedPlayerForRole}`;
+            textArea.value = '';
+
+            // Hide main modal and show add reminder modal
+            document.getElementById('roleAssignmentModal').classList.add('hidden');
+            modal.classList.remove('hidden');
+            textArea.focus();
+        }
+
+        function closeAddReminderModal() {
+            document.getElementById('addReminderModal').classList.add('hidden');
+            document.getElementById('roleAssignmentModal').classList.remove('hidden');
+        }
+
+        function confirmAddReminder() {
+            if (!selectedPlayerForRole) return;
+
+            const textArea = document.getElementById('reminderText');
+            const reminderText = textArea.value.trim();
+
+            if (!reminderText) {
+                alert('Please enter a reminder note');
+                return;
+            }
+
+            // Initialize reminders array if it doesn't exist
+            if (!playerReminders[selectedPlayerForRole]) {
+                playerReminders[selectedPlayerForRole] = [];
+            }
+
+            // Add reminder
+            playerReminders[selectedPlayerForRole].push(reminderText);
+
+            // Broadcast reminder update
+            pubnub.publish({
+                channel: currentRoom,
+                message: {
+                    gameId: currentGameId,
+                    type: 'reminder_update',
+                    playerReminders: playerReminders,
+                    timestamp: Date.now()
+                }
+            });
+
+            updatePlayersList();
+            closeAddReminderModal();
+            closeRoleAssignmentModal();
+        }
+
+        function showRemoveReminderModal() {
+            if (!selectedPlayerForRole) return;
+
+            const reminders = playerReminders[selectedPlayerForRole] || [];
+            if (reminders.length === 0) {
+                alert('No reminders to remove for this player');
+                return;
+            }
+
+            const modal = document.getElementById('removeReminderModal');
+            const title = document.getElementById('removeReminderTitle');
+            const select = document.getElementById('reminderSelect');
+
+            title.textContent = `Remove Reminder for ${selectedPlayerForRole}`;
+
+            // Populate reminder dropdown
+            select.innerHTML = '<option value="">Select reminder...</option>';
+            reminders.forEach((reminder, index) => {
+                const option = document.createElement('option');
+                option.value = index;
+                option.textContent = reminder.length > 50 ? reminder.substring(0, 50) + '...' : reminder;
+                select.appendChild(option);
+            });
+
+            // Hide main modal and show remove reminder modal
+            document.getElementById('roleAssignmentModal').classList.add('hidden');
+            modal.classList.remove('hidden');
+        }
+
+        function closeRemoveReminderModal() {
+            document.getElementById('removeReminderModal').classList.add('hidden');
+            document.getElementById('roleAssignmentModal').classList.remove('hidden');
+        }
+
+        function confirmRemoveReminder() {
+            if (!selectedPlayerForRole) return;
+
+            const select = document.getElementById('reminderSelect');
+            const reminderIndex = parseInt(select.value);
+
+            if (isNaN(reminderIndex)) {
+                alert('Please select a reminder to remove');
+                return;
+            }
+
+            // Remove reminder
+            if (playerReminders[selectedPlayerForRole]) {
+                playerReminders[selectedPlayerForRole].splice(reminderIndex, 1);
+            }
+
+            // Broadcast reminder update
+            pubnub.publish({
+                channel: currentRoom,
+                message: {
+                    gameId: currentGameId,
+                    type: 'reminder_update',
+                    playerReminders: playerReminders,
+                    timestamp: Date.now()
+                }
+            });
+
+            updatePlayersList();
+            closeRemoveReminderModal();
+            closeRoleAssignmentModal();
+        }
+
+    </script>
+</body>
+</html>
+
+<!--
+     PROMPT SEQUENCE TO CLAUDE
+
+     Project Summary: Local Smartphone Messaging App
+Goal
+Create a web-hosted app for smartphones that allows nearby co-located devices to communicate through short text messages, without going through third-party servers. Key requirements:
+* Works on both iOS Safari and Android Chrome
+* Smartphones are physically nearby/co-located
+* Communication hidden from human observers in the area
+* Messages don't need security against internet attackers
+* Primary use case: short text messages between devices
+Technical Journey & Rejected Options
+1. Web Bluetooth API ❌
+* Rejected: Not supported on iOS Safari
+2. QR Code + WebRTC for Direct P2P ❌
+* Rejected: WebRTC signaling complexity without servers proved too difficult
+3. "No Third-Party Server" Requirement ❌
+* Pivoted: Realized messages only need to be hidden from nearby humans, not secured against internet threats
+* New approach: Public messaging APIs where messages are posted publicly, live temporarily (24 hours), with isolated feeds per "room"
+4. Firebase Realtime Database ⭐⭐⭐⭐⭐
+* Real-time WebSocket push, perfect room isolation, generous free tier
+* Issue: More complex setup (auth, security rules) = 6-8 hours development
+5. Other Services Evaluated:
+* Pusher: Good but limited free tier ⭐⭐⭐⭐
+* JSONBin.io/GitHub Gists: Polling only, not real-time ⭐⭐
+* MQTT: Protocol-level solution requiring broker setup, WebSocket bridges for browsers - massive overkill for simple friend messaging
+Current Plan: PubNub
+Selected because:
+* Purpose-built for exactly this use case
+* 2-3 hours total development time vs 6-8+ for alternatives
+* Works in browsers out-of-the-box (no server setup needed)
+* $49/month cost acceptable for temporary friend project vs weeks of development time
+* Simple 3-line implementation: subscribe(), publish(), addListener()
+Status: Working prototype already built and tested. Ready for deployment with real PubNub keys.
+User Context: Developer with limited free time, willing to pay modest amount ($49-100/month) for few months to deliver working app to friends quickly rather than spend weeks on complex setup.
+
+To add a little extra context here: I want to prototype the smart phone app quickly. The main goal is to have an app where I, a game master for an instance of Blood on the Clocktower, can 1. start the app on the my phone, 2. choose a script (presumably I will have uploaded the choices to https://botc-scripts.azurewebsites.net/), 3. input the names of the group of players, 4. have my friends likewise open up the same website, choose their player name from the list, and 5. now we are all playing the game together, where I can send private messages to each player (via pub nub) and then they can likewise respond to my messages. In this way, I will be able to give them information about which role they have received, or what information they learned in each night phase of the game, or ask them to use their power (e.g. choose a player, and/or a role on the current script), and then I may respond with information according to what their power is. The main point is the messages should be able to be free-form human text, but there is also a presumed structure to most of the interactions that we will want to leverage, such as expecting the demon to choose a player each night, and thus it will be useful in the app for me, as the storyteller, to be able to send a message payload that will include, A. the message displayed to the user, and B. a template for what their likely response will be, such as "I choose {player}", where the "{player}" will be interpreted by the app as a place where one can click it and it brings up a combo box with all the players in the current game.
+
+In case its not clear, I do want this to be a single page web app that I can just host on my server.
+
+
+     F: I'm not quite sure if your state machine is set up correctly here. In particular, I was thinking that if the Storyteller has already created the game, then each player should just have to type the correct room id. Once they've typed a correct room id, then they select their name from the list of players associated with that room, and get to join. The way your code seems to be set up, the player is given a button to Generate a New Room, and it never fills the combo box with the names. But maybe I am doing something wrong with my own flow?
+
+     (Claude fixed the above. We then went on a wild goose chase eplorting ways to modularize the code, which is probably important for a long-lived vibe-coded engineering effort, but I eventually recognized as being a bad use of time for this small scale thing.)
+
+
+     F: I'm working on a little prototype. I'm actually pretty happy with it so far. Here's the one big thing that I think is missing: It is meant to capture semi-private messaging between some players in a game. It uses PubNub to deal with sending the messages. (They aren't real secrets.) Here's the problem: I was hoping that if I reloaded the page, and then reconnected to the same room, that I would see my current state reloaded; as in, the past messages that were still accessible via PubNub would load up. Is that not the way that PubNub works? Do the messages disappear from PubNub after a participant observes them? Or do I just need to adjust the code to reload the visible messages when connecting to a running game?
+
+     F: Can you show me the necessary changes as a diff that I would need to apply to the file I showed you?
+
+
+     F: I'm really happy with your help with this app I'm making. One problem I've noticed (or maybe its deliberate): Each message is showing up twice in a senders view. Its seen once on the recipients view. I assume this is something where the code is probably adding the text to the local buffer based on it being locally typed, and then adding it again when it shows up in the pubnub service. Does that sound plausible? See attached. Also, please show your suggestions on how to change this as diffs against the code.
+
+
+     F: I don't necessarily want to remove the immediate local display. Could we consider detecting the echo and rendering some kind of annotation on the message showing that it made it to the pubnub service, like a little checkmark or something in the rendering near the timestamp?
+
+     F: Look at this code, especially the todo list at the top of the file.
+
+     F: I'm very concerned about the oddities I'm seeing with the set of players and seeming corruption
+
+     F: Wow that's a lot more code than I was expecting. I'm not terribly familiar wit hthis domain; is there no simpler way to accomplish this?
+
+     F: what's wrong with looking at the timestamps and treating the most recent ones as the source of truth?
+
+     F: Well you don't have to take my word at face value. Is there any potential issue with this approach?
+
+     F: Okay. So what does this fix look like as a diff to the current file?
+
+     F: Hmm. It didn't seem to work; I made a new game with the new code and with a larger player list, but it still seems to inherit the old player set associated with this room.
+
+     F: Why did you reduce the delay?
+
+     F: Can you add the script "Bad Moon Rising" to this code? Please present the change to me as a diff.
+
+     F: Something is wrong with this code. The page is not rendering properly at the outset. All I did was try to add the bad moon rising script but I think I got the syntax wrong.
+
+     F: I want to tackle the role assignment problem. Each player can be associated with a role. That role can change during the game, so part of the interface is a way for the storyteller to select a player and change their role, which will then present a combo box with all the roles from the script. But most of the time, the more important thing is that in the storyteller's view, the storyteller sees every player's current role. (In the player's view, they do not see their role, in part because most players cannot actually be certain what their role is, due to characters like the Drunk, the Lunatic, or the Marionette.)
+
+     F: Look at the attached code and the instructions at the top. Note in particular the "NOTES FOR CLAUDE", those are for you to follow in your responses here. Immediate task: I want to refine how role assignment works. The existing way to edit the assigned roles is fine. However, when the storyteller selects "new game" with a certain script and player count, the first step (before actually going to the message communication screen) is for the storyteller to select the subset of roles from the script that will be put into the current game. There should be a way for the storyteller to hand-pick the selection, or to choose it randomly (and then optionally edit the resulting random choices). If the selection is entirely random, it should follow the distribution of the four role categories that is embedded with the script. If the storyteller hand-edits the distribution, then the rendering should include some kind of feedback hint about whether the current set of chosen roles fits the distribution of categories from the script (but the code should not attempt to prevent the storyteller from deviating from the encoded distribution, since in the end this choice is up to the storyteller).
+
+     F: The "Continue To Game" button does not seem to do anything?
+
+     F: Once the subset of the roles has been selected, they should be distributed to the players when we "Continue To Game"
+
+     F: It doesn't seem like the players are being assigned the roles? E.g. in the list of players in the Storyteller view, below "View Script", it says "no role" for most of the players for me?
+
+     F: I see the message on the console ``Roles distributed: Object { Amanda: "mayor", Rob: "slayer", Courtney: "monk", Taylor: "undertaker", Pratik: "imp", Neha: "fortune_teller", Steph: "spy" } demo-botc-pubnub.html:2403:14'' but the rendered page still doesn't include the assignments (see attached partial screenshot).
+
+     F: I'm sorry, the second diff you shows looks like you're replacing a line of code with the exact same thing?
+
+     F: Look at this code. Keep in mind the instructions for you (Claude) at the beginning. Immediate Task: Explain to me, in english, how the role assignments work. Both the initial selection of the subset of roles from the script to be distributed amongst the players (and thus ideally will be a count that matches the player count), as well as how the role of each player can be changed by the storyteller during the game itself. Explain the representations involved and how they interact. If you see any potential invariants that we might consider documenting, or any inconsistencies in the code that might be a sign of a mistake, point those out too. (This is all me preparing to try to address a problem I am seeing, but I want you to help me understand the overall code control and dataflow first before I embark on that.)
+
+     F: the other thing to note is that a (probably undocumented) part of the intended design is that the same room can be reused for different games. So if you start a new game within a room, the set of players (which can change, but do not have to), and their assigned roles (which again can change, but do not have to), should update accordingly.
+
+     F: Lets add a gameId identifier to the messages. I am not worried about them being forged (in fact I might well want to let them be forged, in order to join a game midstream). So lets have the gameId just be a simple construction that takes the room-name and appends a number, and then each time someone creates a new game, they just increment the number. (I am willing to live with the potential race condition there from two hypothetical storyteller both trying to create a game at the same time; that scenario simply isn't going to arise for my use case.)
+
+     F: Even with these changes, I am still seeing the incorrect role assignments being presented when I join the room. The console messages say the correct role assignments, but the rendered web page does not show it.
+
+
+     F: Here's a log. I manually swapped in two outsiders and took out two townsfolk. so the end player rendering should show the two outsiders. But it does not. Look at the console log, see the place where the player assignment includes a drunk and a recluse (both outsiders), but that fact is lost in the subsequent console logs.
+
+     F: I don't understand, why don't we just ignore messages that don't have gameId's, since we have now added those and should only look at messages with game Id that match?
+
+     F: Look at this code. Pay attention to the instructions for CLAUDE at the top. Immediate task: The storyteller view seems like its working locally, but the player view does not seem like it is getting the storyteller's messages any more (and likewise the player messages are not making it over the the storyteller view). Did I mess something up with the gameId establishment for players? (They should just look for the most recent game when they connect, and use its game-id. IF a new game id comes in for the room while they are playing, then they should reset themselves to that new game id, since it has invalidated the old one for that room.)
+
+     F: Even with those changes: I can connect to the game, and I see the list of players and can choose myself, and I can view the script after I connect. But I do not see any messages that the storyteller sends to me, and the messages I send are not seen by the storyteller.
+
+     F: handleIncomingMessage called: ... currentGameId: undefined
+
+     F: Look at this code. Pay attention to the instructions for CLAUDE at the top. Immediate task: I want to prefill the player list with the following list of people (so that I can stop retyping it every time I test), though the list should remain editable in the product. Here is the list of people:
+Amanda
+Rob
+Pratik
+Neha
+Kunjal
+Courtney
+Taylor
+Steph
+
+     F: Also make the "I am the" default to Player instead of Storyteller
+
+     F: And make the game room id default to "botc_ddt"
+
+     F: The game room id ends up overwritten by the random generation. Can I turn that off temporarily?
+
+     F: Look at this code. Pay attention to the instructions for CLAUDE at the top. Immediate task: Remove the "Assign Role" button; it is following a separate code path that is causing more harm than good for right now, because the actual roles are assigned via a separate process.
+
+     F: Now, add a new button, "Distribute Roles", where its effect is to tell *all *the players what their assigned role is, as set in the playerRoles array.
+
+     F: Look at this code. Pay attention to the instructions for CLAUDE at the top. Immediate task: In this code, I want to add a way to add reminder tokens in the storyteller view. Right now, when I click on a player, it just lets me assign a role or cancel. Change this interface, so that instead of the primary thing being role reassignment (and having an associated combo box right in my face), instead have four buttons: add reminder, remove reminder, change role, and cancel.
+Cancel at this level just brings us back to the main view.
+Change role brings up a new modal with the combo box of all the current roles, or cancel.
+Add reminder brings up a new modal with a text field where I as storyteller can add an arbitrary note, or cancel. This arbitrary note, if present, should show up below the current three lines of text (i.e. add space for a fourth line, which is where the reminder tokens go).
+Remove reminder brings up a model with a combo box with all the current reminders, and the user chooses which one to remove (or cancels).
+
+     F: Look at this code. Pay attention to the instructions for CLAUDE at the top. Immediate task: In this game, there are certain roles, like "Drunk", "Lunatic", or "Marionette", where part of the point is that the player who is that role does not actually know they have that role, and they get a different token entirely. The storyteller tracks this with reminder tokens. E.g. a player who is a Drunk Librarian will receive the Librarian token, and the storyteller adds a reminder "Is the Drunk" to them. Here's what I want: 1. What's a good name for this characteristic, of a role where the player thinks it is one thing but in reality it is another? 2. Once you think of such a name (and get confirmation from me that it is indeed a good choice of name), add a way to represent this characteristic to the embedded script definition. Most roles will not have this attribute at all, so I think an optional field that, if present, marks this role as being one of these special ones is probably best. Perhaps the optional field should indicate what kind of character they think they are; e.g. the Drunk always thinks it is a Townsfolk, while the Marionette always thinks that it is some Good character (i.e. either Townsfolk or Outsider), and the Lunatic always thinks it is an (Evil) Demon. 3. The reason we are adding this state explicitly is the third change I want you to make: If the user, as storyteller, hits the "Distribute Roles" button while one of the players has actually been assigned one of these roles (rather than the replacement that it is supposed to believe it has), then make the user go through a confirmation step, pointing out the cases of which players have one of these special roles that is meant to be a secret from them, since we do not want to spoil this fun aspect of the game.
+
+     F: I prefer "believesToBe" or even maybe "misimpression". The problem with all the other alternatives you have listed ("disguise", "masquerade", "appear"), is that they imply that the player knows about the ruse and is acting on it. But that's not the case here; these are all cases (as implied by names like "Lunatic") where the player is meant to think they are something totally different than what they actually are.
+
+     F: I don't see the diff to distrbuteAllRoles. Can you print it here?
+
+     F: Is confirm a built-in javascript function?
+
+     F: I'll try this first, I'm hoping this will barely ever matter.
+
+     F: This is great. It made me realize: can we add a similar bit of code that checks, before we distribute the roles, whether two players are being assigned the same role (which is usually but not always a mistake, which I assume could result e.g. from the storyteller swapping a drunk out for a townsfolk without first checking if its a duplicate), and thus make the storyteller confirm before they send out the roles with a duplicate pair in them?
+
+     F: Look at this code. Pay attention to the instructions for CLAUDE at the top. Immediate task: For some reason each players name is showing up on two lines out of four lines in the storyteller view. I think we just need: player name, assigned role, and reminders.
+
+     F: Look at this code. Pay attention to the instructions for CLAUDE at the top. Immediate task:  I want to refactor. the way that the embedded script is handled. There should be two separate maps: One should map each role id, such as 'washerwoman', to its corresponding role object. The other map should map each script  id to the corresponding script object the same way this one does here, except that the roles in the script object should just be a list of role ids, rather than inlining the role object. This will allow Dont-Repeat-Yourself coding of the scripts, since I expect the same role to occur in multiple scripts in the general case.
+
+     F: Look at this code. Pay attention to the instructions for CLAUDE at the top. Immediate task:  I want to unify the "Give Info" and "Use Ability" buttons into a single "Night Action" button. As part of this, I want to add a field to each role that holds an array of template strings, such that the storyteller, when they hit the "Night Action" button, it will let the storyteller choose which template string is appropriate for the message they want to send at this point. For example, for the washerwoman a potential template string is "Either {player1} or {player2} is the {role}", and so the storyteller, upon choosing that string, will then be prompt to choose player1 (via combo box of all the players) and  player2 (via another instance of the combo box of all the players) and a role (via a third combo box, but this one now has a list of the roles on the script). Feel free to attempt to fill in the template strings for each role in ROLES.
+
+    F: Okay this is close to what I was thinking of. You've even jumped ahead to think about the case where the player on the other end will need to respond to the message. Lets take care of that issue first: the truly general system here, is to have a night action template be an array of strings of length 1 or 2. The first string is the string that is used on the storytellers side, such as you have chosen for washerwoman or empath, where the information flow is solely from storyteller to player.  The second string is used on the player's side: It tells the code on the players end what it should use when composing its own response to  what the storyteller has asked. For example, the fortune teller should have the storyteller template be something like: ["Choose two players tonight", "I choose {player1} and {player2}"]. (Don't try to go all the way to the third part of the conversation where the storyteller then responds to the fortune teller's choice; I will get to that later, but not now.) So, please revise this whole diff to account for what I described here.
+
+    F: By the way, are trailing commas legal after the last element in a JavaScript array?
+
+    F: Oops I think I made a typo in my attempt to start transcribing your changes to the roles. Can you identify where my mistake(s) are?
+
+    F: How about this version
+
+    F: I want the nightActionTemplates to be optional for now.
+
+    F: Look at this code. Pay attention to the instructions for CLAUDE at the top. Immediate task: I have added some nightActionTemplates, but I did not yet put in the code that will process them. Can you show me the diff that will add that functionality?
+
+    F: This is a good start.  But: right now, when  I do a night action, it just says e.g. "Send info to rob" and the combo box. I need a reminder of what the message is going to look like. Could you present things so that the text that surrounds the placeholders shows up around the combo boxes?
+
+    F: I don't think this is quite what I meant, but I'm not sure yet. Consider if Amanda is. the Washerwoman. Then I want her night action, when I hit the button, to look to me like "Either" [player combo box here] "or" [player combo box here] " is the " [role combo box here]". Of course since this needs to be mobile-friendly, its fine if there are line breaks or if the combo boxes have to be on the their own lines, that is absolutely fine. The more important thing is to use the template to provide the user with a view of what the meaning is of each thing they are choosing, by showing them the surrounding context i.e. the text of the template for the message that will be constructed after they make their picks in the combo boxes.
+
+    F: sorry to interrupt you, but can you show me the diff relative to this file here: (and I do welcome you identifying potential redundancies. Do try to reuse the existing work that is there. But also, if you can avoid reprinting large blocks of unchanged code in the diffs you construct, that would be nice too.)
+
+    F: Look at this code. Pay attention to the instructions for CLAUDE at the top. Immediate task: I think something went wrong in my attempt to apply a diff related to night action templates. Can you help me debug this?
+
+    F: what? I thought I have that on line 1943 ...
+
+    F: Uncaught SyntaxError: missing } after function bodydemo-botc-pubnub.html:3139:5note: { opened at line 2036, column 35
+
+    F: weird. emacs is indicating that the parentheses aren't quite right yet. Is there potentially also an undelimited string or something?
+
+    F: Whoa, is '`' a valid quote for JavaScript code?
+
+    F: you don't see them in createInlineTemplate ?
+
+    F: At this point I think this is more a problem in Emacs than in my code.
+
+    F: Look at this code. Pay attention to the instructions for CLAUDE at the top. Immediate task: If there is more than one entry in the nightActionTemplates array, then the night action button for a player with that role should prompt the story teller to pick which template they want, by showing them the first template string in each of the available arrays. For example, for fortune teller, the storyteller should pick whether they are sending the "choose two players" message or the "yes" message or the "no" message.
+
+     F: Look at this code. Pay attention to the instructions for CLAUDE at the top. Immediate task: We do not need the "Ask: Choose Player button" anymore. Lets remove it.
+
+     F: Also, when the storyteller is sending a message to a player, do not bother giving the storyteller a preview of the rendered message that will be presented to the player. Its enough to just let the storyteller see what the storyteller needs to fill in, and trust that the embedded roles array is correctly structured.
+
+     F: To be clear: the player will still get their template that they will fill in, right? This only affects the storyteller's preview, right?
+
+
+     F: Look at this code. Pay attention to the instructions for CLAUDE at the top. Immediate task: When we distribute the roles, in addition to saying to each player what their role is, add an extra sentence after that (in the same message) that just says "You are good." for townsfolk and outsiders, and "You are evil." for minions and the demon. This is just to reenforce what team they are on, since the text they are getting isn't necessarily colored.
+
+     F: Look at this code. Pay attention to the instructions for CLAUDE at the top. Immediate task: Add a button to the storyteller's view that toggles between day and night phases (i.e., during the night, which is how the game starts, the button will say "day breaks", and during the day, the button will say "night falls"). The effect this has: When it is night time, the players can see the messages on their screen for this night.  (But not for previous nights.) When it is day time, the players see no messages at all.
+
+     F: Uh, I don't think you should toggle based on receiving a 'phase_change' message alone. I mean, its fine to signal that the event occurred, but I think it will be more robust if you add explicit "daybreak" and "nightfall" events (rather than just "phase_change"). That way, if we inadvertantly issue a nightfall or daybreak multiple times ( due to race conditions or a storyteller reconnect, for example), then it will remain an idempotent operation.
+
+     F: sorry, I lost track of what the diff was being applied to. what changes remain for me to make to this file (see attachment)
+
+     F: Look at this code. Pay attention to the instructions for CLAUDE at the top. Immediate task: The template string system is pretty good. But, we could be a little more fine grained in how we narrow the combo boxes in some cases. In particular, the washerwoman will only see townsfolk, there's no reason to show all the roles on the script in the combo box. Likewise, the librarian will only see outsiders. We do not need to try to encode all of the possible constraints (e.g. some constraints, such as that of Devil's Advocate or Exorcist, are based on game history that I do not want to try to implement). But the highest level constraints, like categories such as townfolk, lets at least put that into place.
+
+     F: hmm. is an additional field the cleanest option here? I was myself thinking that adding new template categories would look nice.
+
+     F: refactor that predicate into an is_role function rather than inlining that disjunction.
+
+     F: Look at this code. Pay attention to the instructions for CLAUDE at the top. Immediate task: For some reason, when I send notice to e.g. the Washerwoman about what they learn about other players, it is rendering the role with the first letter in lowercase. Is it because it is plugging in the id instead of the name, or something else?
+
+     F: its weird that the lookup by current script wasn't working. Unless it was an artifact of us moving the role objects out of the script in the first place?
+
+     F: hmm. it didn't seem to resolve the problem. But I also am not seeing that console.log output. The current output is unfortunately flooded with all the console.log for each private message that is processed.
+
+     F: The option values were capitalized in the combo box before, so I'm not sure if that can possibly be the problem.
+
+     F: Either Alice or Bob is the washerwoman
+
+     F: sorry, can you print the diff here?
+
+     F: Look at this code. Pay attention to the instructions for CLAUDE at the top.  Immediate task: I think the code has a premature assumption that for every case of "choose a player", the current player is not a valid option. But this is not generally true; it is only for a few roles, such as the monk. So while we could add a different subtemplate form, such as {other_player}, the template for {player} should absolutely include the current player as an option in the combo box.
+
+     F: is there another instance of the same problem in createResponseUI ?
+
+     F: Look at this code. Pay attention to the instructions for CLAUDE at the top.  Immediate task: The players are currently not able to join the room until after the roles have been distributed. But there is no real reason for that limitation that I can see; after the storyteller has created the room and is in the process of selecting roles, we should let the players go ahead and join the room concurrently.
+
+     F: I don't think that's the fix; my players still cannot join the room while I am on the role selection screen. Is there something important from the "Continue to Game" button that we need to do as soon as we get to the Role Selection screen?
+
+     F: Look at this code. Pay attention to the instructions for CLAUDE at the top.  Immediate task: When I reconnect as the storyteller, I do not get a reconstruction of the game state, even though I think I should be able to derive much of it from the pubnub messages. E.g. the set of players and the messages that I have sent to them and their responses.
+
+     TODO: while this does re-establish the set of players, it does not load up past messages that we have sent. Also, we could easily include the player assignments in the pubnub messages for later retrieval in these situations.
+
+     TODO: it seems like when I send a custom private message to a player it isn't being rendered on the other end. Or maybe the messages aren't being ordered in the way I would expect? 1. They are ending up on the top of the recipients text box, and 2. they might only be showing up after a reconnect, not during a live game. Or maybe I've exhausted what pubnub lets me do with demo accounts. Or is the problem that I have two storytellers connected at the same time...
+
+-->
