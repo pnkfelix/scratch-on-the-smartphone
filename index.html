@@ -832,6 +832,20 @@ Sam</textarea>
         // Track storyteller workflow state
         let storytellerWorkflowState = 'distribute_roles'; // 'distribute_roles', 'minion_demon_info', 'night_action'
 
+        // Role count values
+        const ROLE_COUNTS = {
+            5: { townsfolk: 3, outsider: 0, minion: 1, demon: 1 },
+            6: { townsfolk: 3, outsider: 1, minion: 1, demon: 1 },
+            7: { townsfolk: 5, outsider: 0, minion: 1, demon: 1 },
+            8: { townsfolk: 5, outsider: 1, minion: 1, demon: 1 },
+            9: { townsfolk: 5, outsider: 2, minion: 1, demon: 1 },
+            10: { townsfolk: 7, outsider: 0, minion: 2, demon: 1 },
+            11: { townsfolk: 7, outsider: 1, minion: 2, demon: 1 },
+            12: { townsfolk: 7, outsider: 2, minion: 2, demon: 1 },
+            13: { townsfolk: 9, outsider: 0, minion: 3, demon: 1 },
+            14: { townsfolk: 9, outsider: 1, minion: 3, demon: 1 },
+            15: { townsfolk: 9, outsider: 2, minion: 3, demon: 1 }
+        }
 
         // Embedded script definitions
         const ROLES = {
@@ -1348,20 +1362,7 @@ Sam</textarea>
                 ],
                 other_night_order: [
                     'poisoner', 'monk', 'spy', 'scarlet_woman', 'imp', 'ravenkeeper', 'undertaker', 'empath', 'fortune_teller', 'butler'
-                ],
-                setup: {
-                    5: { townsfolk: 3, outsider: 0, minion: 1, demon: 1 },
-                    6: { townsfolk: 3, outsider: 1, minion: 1, demon: 1 },
-                    7: { townsfolk: 5, outsider: 0, minion: 1, demon: 1 },
-                    8: { townsfolk: 5, outsider: 1, minion: 1, demon: 1 },
-                    9: { townsfolk: 5, outsider: 2, minion: 1, demon: 1 },
-                    10: { townsfolk: 7, outsider: 0, minion: 2, demon: 1 },
-                    11: { townsfolk: 7, outsider: 1, minion: 2, demon: 1 },
-                    12: { townsfolk: 7, outsider: 2, minion: 2, demon: 1 },
-                    13: { townsfolk: 9, outsider: 0, minion: 3, demon: 1 },
-                    14: { townsfolk: 9, outsider: 1, minion: 3, demon: 1 },
-                    15: { townsfolk: 9, outsider: 2, minion: 3, demon: 1 }
-                }
+                ]
             },
             'bad_moon_rising': {
                 id: 'bad_moon_rising',
@@ -1380,20 +1381,7 @@ Sam</textarea>
                 ],
                 other_night_order: [
                     'minstrel', 'sailor', 'innkeeper', 'courtier', 'gambler', 'devils_advocate', 'lunatic', 'exorcist', 'zombuul', 'pukka', 'shabaloth', 'po', 'assassin', 'godfather', 'professor', 'gossip', 'tinker', 'moonchild', 'grandmother', 'chambermaid', 'goon'
-                ],
-                setup: {
-                    5: { townsfolk: 3, outsider: 0, minion: 1, demon: 1 },
-                    6: { townsfolk: 3, outsider: 1, minion: 1, demon: 1 },
-                    7: { townsfolk: 5, outsider: 0, minion: 1, demon: 1 },
-                    8: { townsfolk: 5, outsider: 1, minion: 1, demon: 1 },
-                    9: { townsfolk: 5, outsider: 2, minion: 1, demon: 1 },
-                    10: { townsfolk: 7, outsider: 0, minion: 2, demon: 1 },
-                    11: { townsfolk: 7, outsider: 1, minion: 2, demon: 1 },
-                    12: { townsfolk: 7, outsider: 2, minion: 2, demon: 1 },
-                    13: { townsfolk: 9, outsider: 0, minion: 3, demon: 1 },
-                    14: { townsfolk: 9, outsider: 1, minion: 3, demon: 1 },
-                    15: { townsfolk: 9, outsider: 2, minion: 3, demon: 1 }
-                }
+                ]
             },
             'trouble_babbling': {
                 id: 'trouble_babbling',
@@ -1412,20 +1400,7 @@ Sam</textarea>
                 ],
                 other_night_order: [
                     'philosopher', 'monk', 'witch', 'scarlet_woman', 'imp', 'po', 'yaggababble', 'godfather', 'gossip', 'ravenkeeper', 'empath', 'fortune_teller', 'undertaker', 'butler', 'gambler'
-                ],
-                setup: {
-                    5: { townsfolk: 3, outsider: 0, minion: 1, demon: 1 },
-                    6: { townsfolk: 3, outsider: 1, minion: 1, demon: 1 },
-                    7: { townsfolk: 5, outsider: 0, minion: 1, demon: 1 },
-                    8: { townsfolk: 5, outsider: 1, minion: 1, demon: 1 },
-                    9: { townsfolk: 5, outsider: 2, minion: 1, demon: 1 },
-                    10: { townsfolk: 7, outsider: 0, minion: 2, demon: 1 },
-                    11: { townsfolk: 7, outsider: 1, minion: 2, demon: 1 },
-                    12: { townsfolk: 7, outsider: 2, minion: 2, demon: 1 },
-                    13: { townsfolk: 9, outsider: 0, minion: 3, demon: 1 },
-                    14: { townsfolk: 9, outsider: 1, minion: 3, demon: 1 },
-                    15: { townsfolk: 9, outsider: 2, minion: 3, demon: 1 }
-                }
+                ]
             },
         };
 
@@ -1613,13 +1588,13 @@ Sam</textarea>
 
                     // Calculate target distribution
                     const playerCount = players.length;
-                    if (currentScript.setup && currentScript.setup[playerCount]) {
-                        targetDistribution = currentScript.setup[playerCount];
+                    if (ROLE_COUNTS[playerCount]) {
+                        targetDistribution = ROLE_COUNTS[playerCount];
                         currentGameId = generateGameId(currentRoom);
                         showRoleSelectionScreen();
                         return; // Don't proceed to game yet
                     } else {
-                        alert(`No setup defined for ${playerCount} players in this script`);
+                        alert(`No setup defined for ${playerCount} players`);
                         return;
                     }
 
@@ -1866,8 +1841,6 @@ Sam</textarea>
 
 
             if (message.type === 'game_setup') {
-
-
                 // For players, always consider all game_setup messages to find the most recent
                 // For storytellers, only process messages that match their current game
                 if (userType === 'player') {
@@ -2362,8 +2335,8 @@ Sam</textarea>
             let setup;
 
             // Find setup for this player count
-            if (currentScript.setup && currentScript.setup[playerCount]) {
-                setup = currentScript.setup[playerCount];
+            if (ROLE_COUNTS[playerCount]) {
+                setup = ROLE_COUNTS[playerCount];
             } else {
                 alert(`No setup defined for ${playerCount} players in this script`);
                 return;
@@ -2435,7 +2408,6 @@ Sam</textarea>
             }
 
             const playerCount = players.length;
-            let setup;
 
             // Assign seats to players
             const shuffledPlayers = [...players];
@@ -2466,7 +2438,10 @@ Sam</textarea>
 
         // Template Functions
         function useNightActionTemplate() {
-            const targetPlayer = document.getElementById('targetPlayer').value;
+            if (!selectedPlayerForRole) return;
+
+            const targetPlayer = selectedPlayerForRole;
+
             if (!targetPlayer) {
                 alert('Please select a target player first');
                 return;
@@ -3596,9 +3571,6 @@ Sam</textarea>
                     return; // Cancel distribution
                 }
             }
-
-
-
 
             let sentCount = 0;
 
