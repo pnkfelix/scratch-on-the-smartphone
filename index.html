@@ -227,6 +227,10 @@
             border: 2px solid transparent;
         }
 
+        .player-card .seat-num {
+            font-size: 0.7rem;
+        }
+
         .player-card .player-name {
             font-weight: bold;
             margin-bottom: 5px;
@@ -644,12 +648,12 @@ Sam</textarea>
                     <div id="distributeRolesPhase" class="template-buttons" style="display: none;">
                         <button class="template-btn" onclick="distributeAllRoles()">Distribute Roles</button>
                     </div>
-                    
+
                     <div id="minionDemonPhase" class="template-buttons" style="display: none;">
                         <button class="template-btn" onclick="distributeMinionAndDemonInfo()">Distribute Minion/Demon Info</button>
                         <button class="template-btn" onclick="skipMinionDemonInfo()" style="background: #666;">Skip Minion/Demon Info</button>
                     </div>
-                    
+
                     <div id="nightActionPhase" class="template-buttons" style="display: none;">
                         <button class="template-btn" onclick="useNightActionTemplate()">Night Action</button>
                     </div>
@@ -687,9 +691,10 @@ Sam</textarea>
                 <button onclick="showAddReminderModal()" style="background: linear-gradient(45deg, #ffd93d, #f39c12);">📝 Add Reminder</button>
                 <button onclick="showRemoveReminderModal()" style="background: linear-gradient(45deg, #ff6b6b, #ee5a24);">🗑️ Remove Reminder</button>
                 <button onclick="showChangeRoleModal()" style="background: linear-gradient(45deg, #26de81, #20bf6b);">🎭 Change Role</button>
+                <button onclick="showChangeSeatModal()" style="background: linear-gradient(45deg, #5e2c03, #733604);">🪑 Change Seat</button>
                 <button id="deathToggleBtn" onclick="togglePlayerDeath()" style="background: linear-gradient(45deg, #9b59b6, #8e44ad);">💀 Dies</button>
-	    </div>
-            <div style="margin-top: 10px;">	    
+        </div>
+            <div style="margin-top: 10px;">
                 <button onclick="closeRoleAssignmentModal()" style="width: 100%; background: #666;">Cancel</button>
             </div>
         </div>
@@ -712,6 +717,28 @@ Sam</textarea>
             <div style="margin-top: 10px;">
                 <button onclick="randomlyAssignAllRoles()" style="width: 100%; background: linear-gradient(45deg, #26de81, #20bf6b);">
                     🎲 Randomly Assign All Roles
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Change Seat Modal -->
+    <div id="changeSeatModal" class="role-assignment-modal hidden">
+        <div class="seat-assignment-content">
+            <h3 id="changeSeatTitle">Change Seat</h3>
+            <div class="input-group">
+                <label for="seatSelect">Seat:</label>
+                <select id="seatSelect">
+                    <option value="">No seat assigned</option>
+                </select>
+            </div>
+            <div style="display: flex; gap: 10px; margin-top: 15px;">
+                <button onclick="confirmSeatChange()" style="flex: 1;">Change Seat</button>
+                <button onclick="closeChangeSeatModal()" style="flex: 1; background: #666;">Cancel</button>
+            </div>
+            <div style="margin-top: 10px;">
+                <button onclick="randomlyAssignAllSeats()" style="width: 100%; background: linear-gradient(45deg, #26de81, #20bf6b);">
+                    🎲 Randomly Assign All Seats
                 </button>
             </div>
         </div>
@@ -1608,11 +1635,11 @@ Sam</textarea>
                             separator.disabled = true;
                             targetSelect.appendChild(separator);
                         } else {
-			    const option = document.createElement('option');
+                            const option = document.createElement('option');
                             option.value = player;
                             option.textContent = player;
                             targetSelect.appendChild(option);
-			}
+                        }
                     });
                 }
 
@@ -1738,6 +1765,10 @@ Sam</textarea>
                 }
             }
 
+            if (message.type === 'seat_assignment' && message.gameId === currentGameId && message.players) {
+                players = message.players;
+            }
+
             // Update role assignments from more recent role_assignment messages
             if (message.type === 'role_assignment' && message.gameId === currentGameId && message.playerRoles) {
                 playerRoles = { ...playerRoles, ...message.playerRoles };
@@ -1855,7 +1886,6 @@ Sam</textarea>
                         // Process this setup message
                         players = message.players;
 
-                        
                         // Process script information
                         if (message.script) {
                             if (typeof message.script === 'string') {
@@ -1864,7 +1894,7 @@ Sam</textarea>
                             } else {
                                 currentScript = message.script;
                             }
-                            
+
                             // Update script display if we're on the game screen
                             const scriptEl = document.getElementById('displayScript');
                             if (scriptEl && currentScript) {
@@ -1902,7 +1932,7 @@ Sam</textarea>
                         // If it's already an object, use it directly
                         currentScript = message.script;
                     }
-                    
+
                     // Update script display if we're on the game screen
                     const scriptEl = document.getElementById('displayScript');
                     if (scriptEl && currentScript) {
@@ -1925,6 +1955,13 @@ Sam</textarea>
                     playerRoles = message.playerRoles;
                     updatePlayersList();
                 }
+            } else if (message.type === 'seat_assignment' && userType === 'storyteller' &&
+                      message.gameId === currentGameId) {
+                // Update local role assignments
+                if (message.players) {
+                    players = message.players;
+                    updatePlayersList();
+                }
             } else if (message.type === 'reminder_update' && userType === 'storyteller' &&
                        message.gameId === currentGameId) {
                 // Update local reminder assignments
@@ -1943,37 +1980,36 @@ Sam</textarea>
             } else if (message.type === 'nightfall' && message.gameId === currentGameId) {
                 setNightPhase();
             } else if (message.type === 'private_message') {
-		// For players without gameId, adopt it from any valid message
-		if (userType === 'player' && !currentGameId && message.gameId) {
-		    currentGameId = message.gameId;
-		    console.log('Player adopted gameId from message:', currentGameId);
-		    // Update the display
-		    const gameIdEl = document.getElementById('displayGameId');
-		    if (gameIdEl) {
-		        gameIdEl.textContent = currentGameId;
-		    }
-		}
-     
-		// Now check if we should process this message
-		if (message.gameId === currentGameId) {
+                // For players without gameId, adopt it from any valid message
+                if (userType === 'player' && !currentGameId && message.gameId) {
+                    currentGameId = message.gameId;
+                    console.log('Player adopted gameId from message:', currentGameId);
+                    // Update the display
+                    const gameIdEl = document.getElementById('displayGameId');
+                    if (gameIdEl) {
+                        gameIdEl.textContent = currentGameId;
+                    }
+                }
 
-		    console.log('Processing private message:', message);
+                // Now check if we should process this message
+                if (message.gameId === currentGameId) {
 
+                    console.log('Processing private message:', message);
 
                     // Check if this is an echo of our own message
                     if (message.from === currentUser && sentMessages.has(message.timestamp)) {
-			// This is an echo - mark the local message as delivered
-			markMessageDelivered(message.timestamp);
-			return; // Don't display duplicate
+            // This is an echo - mark the local message as delivered
+                        markMessageDelivered(message.timestamp);
+                        return; // Don't display duplicate
                     }
 
                     // If it's not our message or not in sent messages, display normally
                     displayMessage(message);
-		} else {
-		    console.log('Message rejected - gameId mismatch:', message.gameId, 'vs', currentGameId);
-		}
+                } else {
+                    console.log('Message rejected - gameId mismatch:', message.gameId, 'vs', currentGameId);
+                }
             }
-	}
+        }
 
         function switchToGameScreen() {
             document.getElementById('setupScreen').classList.add('hidden');
@@ -1997,7 +2033,7 @@ Sam</textarea>
                 document.getElementById('storytellerControls').classList.remove('hidden');
 
                 // Initialize workflow state
-                updateStorytellerWorkflowUI();            
+                updateStorytellerWorkflowUI();
             }
 
             updatePlayersList();
@@ -2008,7 +2044,7 @@ Sam</textarea>
             document.getElementById('distributeRolesPhase').style.display = 'none';
             document.getElementById('minionDemonPhase').style.display = 'none';
             document.getElementById('nightActionPhase').style.display = 'none';
-            
+
             // Show current phase
             if (storytellerWorkflowState === 'distribute_roles') {
                 document.getElementById('distributeRolesPhase').style.display = 'block';
@@ -2018,13 +2054,12 @@ Sam</textarea>
                 document.getElementById('nightActionPhase').style.display = 'block';
             }
         }
-        
+
         function skipMinionDemonInfo() {
             storytellerWorkflowState = 'night_action';
             updateStorytellerWorkflowUI();
         }
 
- 
         function getLivingPlayerCount() {
             return players.filter(player => playerDeathState[player] !== 'dead').length;
         }
@@ -2051,22 +2086,28 @@ Sam</textarea>
             console.log('updatePlayersList called, playerRoles:', playerRoles);
             console.log('currentScript:', currentScript);
 
-          players.forEach(player => {
+          players.forEach((player, index) => {
             const playerCard = document.createElement('div');
                 playerCard.className = 'player-card';
 
-                // Add death styling if player is dead
+                const seatDiv = document.createElement('div');
+                seatDiv.className = 'seat-num';
+                seatDiv.textContent = `Seat ${index+1}`;
+                playerCard.appendChild(seatDiv);
+
                 const isDead = playerDeathState[player] === 'dead';
-                if (isDead) {
-                    playerCard.style.opacity = '0.5';
-                    playerCard.style.textDecoration = 'line-through';
-                }
 
                 const nameDiv = document.createElement('div');
                 nameDiv.className = 'player-name';
                 nameDiv.textContent = player;
                 nameDiv.textContent = isDead ? `💀 ${player} 💀` : player;
                 playerCard.appendChild(nameDiv);
+
+                // Add death styling if player is dead
+                if (isDead) {
+                    playerCard.style.opacity = '0.5';
+                    nameDiv.style.textDecoration = 'line-through';
+                }
 
                 // Show role if storyteller
                 if (userType === 'storyteller') {
@@ -2123,12 +2164,12 @@ Sam</textarea>
                         separator.textContent = '-----';
                         separator.disabled = true;
                         targetSelect.appendChild(separator);
-		    } else {
-			const option = document.createElement('option');
-			option.value = player;
-			option.textContent = player;
-			targetSelect.appendChild(option);
-		    }
+                    } else {
+                        const option = document.createElement('option');
+                        option.value = player;
+                        option.textContent = player;
+                        targetSelect.appendChild(option);
+                    }
                 });
             }
 
@@ -2141,8 +2182,8 @@ Sam</textarea>
             }
 
             // Determine which night order to use
-            const nightOrder = (dayNightCounter === 1) 
-                ? currentScript.first_night_order 
+            const nightOrder = (dayNightCounter === 1)
+                ? currentScript.first_night_order
                 : currentScript.other_night_order;
 
             if (!nightOrder || nightOrder.length === 0) {
@@ -2158,7 +2199,7 @@ Sam</textarea>
             // First, add players in night order
             nightOrder.forEach(roleId => {
                 // Find the player with this role
-                const playerWithRole = players.find(player => 
+                const playerWithRole = players.find(player =>
                     playerRoles[player] === roleId && !usedPlayers.has(player)
                 );
                 if (playerWithRole) {
@@ -2179,7 +2220,7 @@ Sam</textarea>
                     console.log('getOrderedPlayersForNight Adding remaining player', player);
                     orderedPlayers.push(player);
                 }
-	    });
+        });
 
             console.log('getOrderedPlayersForNight Final ordered players:', orderedPlayers);
             return orderedPlayers;
@@ -2198,11 +2239,11 @@ Sam</textarea>
                         separator.disabled = true;
                         targetSelect.appendChild(separator);
                     } else {
-			const option = document.createElement('option');
-			option.value = player;
-			option.textContent = player;
-			targetSelect.appendChild(option);
-		    }
+                        const option = document.createElement('option');
+                        option.value = player;
+                        option.textContent = player;
+                        targetSelect.appendChild(option);
+                    }
                 });
             }
         }
@@ -2275,8 +2316,8 @@ Sam</textarea>
             // Update death toggle button text based on current state
             const isAlive = playerDeathState[playerName] !== 'dead';
             deathToggleBtn.textContent = isAlive ? '💀 Dies' : '⚡ Reborn';
-            deathToggleBtn.style.background = isAlive ? 
-                'linear-gradient(45deg, #9b59b6, #8e44ad)' : 
+            deathToggleBtn.style.background = isAlive ?
+                'linear-gradient(45deg, #9b59b6, #8e44ad)' :
                 'linear-gradient(45deg, #26de81, #20bf6b)';
 
             modal.classList.remove('hidden');
@@ -2387,7 +2428,41 @@ Sam</textarea>
             closeRoleAssignmentModal();
         }
 
+        function randomlyAssignAllSeats() {
+            if (players.length === 0) {
+                alert('No players');
+                return;
+            }
 
+            const playerCount = players.length;
+            let setup;
+
+            // Assign seats to players
+            const shuffledPlayers = [...players];
+            for (let i = shuffledPlayers.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [shuffledPlayers[i], shuffledPlayers[j]] = [shuffledPlayers[j], shuffledPlayers[i]];
+            }
+
+            console.log(shuffledPlayers);
+
+            // Assign seats
+            players = shuffledPlayers
+
+            // Broadcast the new assignments
+            pubnub.publish({
+                channel: currentRoom,
+                message: {
+                    gameId: currentGameId,
+                    type: 'seat_assignment',
+                    players: players,
+                    timestamp: Date.now()
+                }
+            });
+
+            updatePlayersList();
+            closeRoleAssignmentModal();
+        }
 
         // Template Functions
         function useNightActionTemplate() {
@@ -2617,7 +2692,7 @@ Sam</textarea>
                             fieldHtml += '<option value="" disabled>-----</option>';
                         } else {
                             fieldHtml += `<option value="${player}">${player}</option>`;
-			}
+                        }
                     });
                     fieldHtml += '</select>';
 
@@ -2846,7 +2921,7 @@ Sam</textarea>
             // Insert message in chronological order by timestamp
             const existingMessages = messagesContainer.querySelectorAll('.message');
             let insertPosition = null;
-            
+
             for (let i = 0; i < existingMessages.length; i++) {
                 const existingTimestamp = parseInt(existingMessages[i].dataset.timestamp);
                 if (message.timestamp < existingTimestamp) {
@@ -2854,13 +2929,13 @@ Sam</textarea>
                     break;
                 }
             }
-            
+
             if (insertPosition) {
                 messagesContainer.insertBefore(messageEl, insertPosition);
             } else {
                 messagesContainer.appendChild(messageEl);
             }
-	    
+
             // Add response UI for prompts
             if (message.messageType === 'prompt' && message.to === currentUser && userType === 'player') {
                 const responseData = message.templateData;
@@ -2962,7 +3037,7 @@ Sam</textarea>
                             option.value = player;
                             option.textContent = player;
                             input.appendChild(option);
-			}
+                        }
                     });
                 } else {
                     input = document.createElement('input');
@@ -3423,12 +3498,12 @@ Sam</textarea>
                     separator.textContent = '-----';
                     separator.disabled = true;
                     targetSelect.appendChild(separator);
-		} else {
+                } else {
                     const option = document.createElement('option');
                     option.value = player;
                     option.textContent = player;
                     targetSelect.appendChild(option);
-		}
+                }
             });
 
             switchToGameScreen();
@@ -3743,6 +3818,66 @@ Sam</textarea>
             closeRoleAssignmentModal();
         }
 
+        function showChangeSeatModal() {
+            if (!selectedPlayerForRole) return;
+
+            const modal = document.getElementById('changeSeatModal');
+            const title = document.getElementById('changeSeatTitle');
+            const seatSelect = document.getElementById('seatSelect');
+
+            title.textContent = `Change Seat for ${selectedPlayerForRole}`;
+
+            // Populate seat dropdown
+            seatSelect.innerHTML = '<option value="">No seat assigned</option>';
+
+            for (i=0;i<players.length;i++) {
+                const option = document.createElement('option');
+                option.value = i;
+                option.textContent = `Seat ${i+1}`;
+                seatSelect.appendChild(option);
+            }
+
+            // Set current seat if any
+            if (playerRoles[selectedPlayerForRole]) {
+                seatSelect.value = players.indexOf(selectedPlayerForRole);
+            }
+
+            // Hide main modal and show change role modal
+            document.getElementById('roleAssignmentModal').classList.add('hidden');
+            modal.classList.remove('hidden');
+        }
+
+        function closeChangeSeatModal() {
+            document.getElementById('changeSeatModal').classList.add('hidden');
+            document.getElementById('roleAssignmentModal').classList.remove('hidden');
+        }
+
+        function confirmSeatChange() {
+            if (!selectedPlayerForRole) return;
+
+            const seatSelect = document.getElementById('seatSelect');
+            const selectedSeat = seatSelect.value || null;
+            const prevSeat = players.indexOf(selectedPlayerForRole);
+
+            // Update local state
+            players.splice(selectedSeat, 0, players.splice(prevSeat, 1)[0]);
+
+            // Broadcast role assignment
+            pubnub.publish({
+                channel: currentRoom,
+                message: {
+                    gameId: currentGameId,
+                    type: 'seat_assignment',
+                    players: players,
+                    timestamp: Date.now()
+                }
+            });
+
+            updatePlayersList();
+            closeChangeSeatModal();
+            closeRoleAssignmentModal();
+        }
+
         function showAddReminderModal() {
             if (!selectedPlayerForRole) return;
 
@@ -3892,7 +4027,7 @@ Sam</textarea>
         function editGameId() {
             const modal = document.getElementById('gameIdEditModal');
             const input = document.getElementById('newGameId');
-            
+
             input.value = currentGameId || '';
             modal.classList.remove('hidden');
             input.focus();
@@ -3905,20 +4040,20 @@ Sam</textarea>
         function confirmGameIdChange() {
             const input = document.getElementById('newGameId');
             const newGameId = input.value.trim();
-            
+
             if (!newGameId) {
                 alert('Please enter a valid game ID');
                 return;
             }
-            
+
             currentGameId = newGameId;
             document.getElementById('displayGameId').textContent = currentGameId;
-            
+
             // If we're a storyteller, broadcast the new game state
             if (userType === 'storyteller') {
                 sendGameSetup();
             }
-            
+
             closeGameIdEditModal();
         }
 
@@ -4178,7 +4313,7 @@ Remove reminder brings up a model with a combo box with all the current reminder
 
      F: Look at this code. Pay attention to the instructions for CLAUDE. I am seeing cases where 1. the storyteller hits the "Distribute Roles" button, but 2. a player is getting the console.log output: Message rejected - no matching condition. and no message is displayed for them, even though on the StoryTeller's side, it claims that it sent the message to that Player.
 
-     F: Look at this code. Pay attention to the instructions for CLAUDE. I want a way to for the storyteller to mark players as being dead, and when a player is marked as dead, it should be reflected on the screens of all the connected players. I will let you decide whether it is better to do it by having all messages carry the lists of "living" and "dead" players (and then have the message processing code update the UI accordingly), or to have a separate message that signals a death. The point is, the UI should be that the StoryTeller can click a player, and in the modal that currently controls reminder tokens and roles, there should be an extra button, where for living players, this new button says "dies" (and when clicked, signals to all player UI's that the selected player is now dead), and for dead players, the new button says "reborn" (and when clicked, signals to all player UI's that the selected player is living by removing the death marker).     
+     F: Look at this code. Pay attention to the instructions for CLAUDE. I want a way to for the storyteller to mark players as being dead, and when a player is marked as dead, it should be reflected on the screens of all the connected players. I will let you decide whether it is better to do it by having all messages carry the lists of "living" and "dead" players (and then have the message processing code update the UI accordingly), or to have a separate message that signals a death. The point is, the UI should be that the StoryTeller can click a player, and in the modal that currently controls reminder tokens and roles, there should be an extra button, where for living players, this new button says "dies" (and when clicked, signals to all player UI's that the selected player is now dead), and for dead players, the new button says "reborn" (and when clicked, signals to all player UI's that the selected player is living by removing the death marker).
 
      F: Can you show me this as a diff, like I asked in the CLAUDE instructions at the top of the file?
 
