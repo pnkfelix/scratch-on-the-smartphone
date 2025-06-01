@@ -2720,9 +2720,7 @@ Sam</textarea>
 
         // Template Functions
         function useNightActionTemplate() {
-            if (!selectedPlayerForRole) return;
-
-            const targetPlayer = selectedPlayerForRole;
+            const targetPlayer = document.getElementById('targetPlayer').value;
 
             if (!targetPlayer) {
                 alert('Please select a target player first');
