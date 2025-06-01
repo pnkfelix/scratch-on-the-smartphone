@@ -849,6 +849,7 @@ Sam</textarea>
 
         // Embedded script definitions
         const ROLES = {
+            // TB
             washerwoman: {
                 id: 'washerwoman',
                 name: 'Washerwoman',
@@ -1067,15 +1068,6 @@ Sam</textarea>
                 firstNight: false,
                 otherNights: false,
             },
-            witch: {
-                id: 'witch',
-                name: 'Witch',
-                team: 'minion',
-                ability: 'Each night, choose a player: if they nominate tomorrow, they die. If only 3 players live, you lose this ability.',
-                firstNight: true,
-                otherNights: true,
-                nightActionTemplates: [['Choose a player to curse.', 'I choose {player}.']],
-            },
             imp: {
                 id: 'imp',
                 name: 'Imp',
@@ -1084,10 +1076,10 @@ Sam</textarea>
                 firstNight: false,
                 otherNights: true,
                 nightActionTemplates: [
-                    ['These three roles are not in play: {bluff_role1}, {bluff_role2}, {bluff_role3}.'],
                     ['Choose a player to kill tonight. Choose yourself to make one of your minions the new Imp.', 'I choose to kill {player1}.']
                 ],
             },
+            // BMR
             grandmother: {
                 id: 'grandmother',
                 name: 'Grandmother',
@@ -1289,7 +1281,6 @@ Sam</textarea>
                 firstNight: false,
                 otherNights: true,
                 nightActionTemplates: [
-                    ['These three roles are not in play: {bluff_role1}, {bluff_role2}, {bluff_role3}.'],
                     ['Choose a player to kill tonight.', 'I choose to kill {player1}.']
                 ],
             },
@@ -1301,11 +1292,10 @@ Sam</textarea>
                 firstNight: true,
                 otherNights: true,
                 nightActionTemplates: [
-                    ['These three roles are not in play: {bluff_role1}, {bluff_role2}, {bluff_role3}.'],
                     ['Choose a player to poison tonight and kill tomorrow.', 'I choose {player1}.']
                 ],
             },
-            'shabaloth': {
+            shabaloth: {
                 id: 'shabaloth',
                 name: 'Shabaloth',
                 team: 'demon',
@@ -1313,7 +1303,6 @@ Sam</textarea>
                 firstNight: false,
                 otherNights: true,
                 nightActionTemplates: [
-                    ['These three roles are not in play: {bluff_role1}, {bluff_role2}, {bluff_role3}.'],
                     ['Choose two players.', 'I choose {player1} and {player2}.']
                 ],
             },
@@ -1325,22 +1314,11 @@ Sam</textarea>
                 firstNight: false,
                 otherNights: true,
                 nightActionTemplates: [
-                    ['These three roles are not in play: {bluff_role1}, {bluff_role2}, {bluff_role3}.'],
                     ['Choose a player.', 'I choose {player}.'],
                     ['Choose three players.', 'I choose {player1}, {player2}, and {player3}.'],
                 ],
             },
-            yaggababble: {
-                id: 'yaggababble',
-                name: 'Yaggababble',
-                team: 'demon',
-                ability: 'You start knowing a secret phrase. For each time you said it publicly today, a player might die.',
-                firstNight: true,
-                otherNights: false,
-                nightActionTemplates: [
-                    [['Your secret phrase is "{phrase}".']],
-                ],
-            },
+            // S&V
             clockmaker: {
                 id: 'clockmaker',
                 name: 'Clockmaker',
@@ -1438,7 +1416,8 @@ Sam</textarea>
                 nightActionTemplates: [
                     ['Do you wish to use your once-per-game ability?', 'I choose {yesno}.'],
                     ['Choose two players.', 'I choose {player1} and {player2}.'],
-                    ['You learn a {yesno}.']
+                    ['Yes, they are the same alignment.'],
+                    ['No, they are not the same alignment.']
                 ],
             },
             philosopher: {
@@ -1531,7 +1510,7 @@ Sam</textarea>
                 id: 'witch',
                 name: 'Witch',
                 team: 'minion',
-                ability: 'Each night, choose a player: if they nominate tomorrow, they die. If only 1 player is alive, you lose this ability.',
+                ability: 'Each night, choose a player: if they nominate tomorrow, they die. If just 3 players live, you lose this ability.',
                 firstNight: true,
                 otherNights: true,
                 nightActionTemplates: [
@@ -1603,8 +1582,27 @@ Sam</textarea>
                 nightActionTemplates: [
                     ['Choose a player.', 'I choose {player}.'],
                 ]
-            }
+            },
+            // Experimental
+            yaggababble: {
+                id: 'yaggababble',
+                name: 'Yaggababble',
+                team: 'demon',
+                ability: 'You start knowing a secret phrase. For each time you said it publicly today, a player might die.',
+                firstNight: true,
+                otherNights: false,
+                nightActionTemplates: [
+                    [['Your secret phrase is "{phrase}".']],
+                ],
+            },
         };
+
+        Object.entries(ROLES).forEach(([key, role]) => {
+            if (role.team === 'demon') {
+                console.log('unshifting')
+                role.nightActionTemplates.unshift(['These three roles are not in play: {bluff_role1}, {bluff_role2}, {bluff_role3}.'])
+            }
+        })
 
         const EMBEDDED_SCRIPTS = {
             trouble_brewing: {
