@@ -227,6 +227,10 @@
             border: 2px solid transparent;
         }
 
+        .player-card .seat-num {
+            font-size: 0.7rem;
+        }
+
         .player-card .player-name {
             font-weight: bold;
             margin-bottom: 5px;
@@ -644,12 +648,12 @@ Sam</textarea>
                     <div id="distributeRolesPhase" class="template-buttons" style="display: none;">
                         <button class="template-btn" onclick="distributeAllRoles()">Distribute Roles</button>
                     </div>
-                    
+
                     <div id="minionDemonPhase" class="template-buttons" style="display: none;">
                         <button class="template-btn" onclick="distributeMinionAndDemonInfo()">Distribute Minion/Demon Info</button>
                         <button class="template-btn" onclick="skipMinionDemonInfo()" style="background: #666;">Skip Minion/Demon Info</button>
                     </div>
-                    
+
                     <div id="nightActionPhase" class="template-buttons" style="display: none;">
                         <button class="template-btn" onclick="useNightActionTemplate()">Night Action</button>
                     </div>
@@ -687,9 +691,10 @@ Sam</textarea>
                 <button onclick="showAddReminderModal()" style="background: linear-gradient(45deg, #ffd93d, #f39c12);">📝 Add Reminder</button>
                 <button onclick="showRemoveReminderModal()" style="background: linear-gradient(45deg, #ff6b6b, #ee5a24);">🗑️ Remove Reminder</button>
                 <button onclick="showChangeRoleModal()" style="background: linear-gradient(45deg, #26de81, #20bf6b);">🎭 Change Role</button>
+                <button onclick="showChangeSeatModal()" style="background: linear-gradient(45deg, #5e2c03, #733604);">🪑 Change Seat</button>
                 <button id="deathToggleBtn" onclick="togglePlayerDeath()" style="background: linear-gradient(45deg, #9b59b6, #8e44ad);">💀 Dies</button>
-	    </div>
-            <div style="margin-top: 10px;">	    
+        </div>
+            <div style="margin-top: 10px;">
                 <button onclick="closeRoleAssignmentModal()" style="width: 100%; background: #666;">Cancel</button>
             </div>
         </div>
@@ -712,6 +717,28 @@ Sam</textarea>
             <div style="margin-top: 10px;">
                 <button onclick="randomlyAssignAllRoles()" style="width: 100%; background: linear-gradient(45deg, #26de81, #20bf6b);">
                     🎲 Randomly Assign All Roles
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Change Seat Modal -->
+    <div id="changeSeatModal" class="role-assignment-modal hidden">
+        <div class="seat-assignment-content">
+            <h3 id="changeSeatTitle">Change Seat</h3>
+            <div class="input-group">
+                <label for="seatSelect">Seat:</label>
+                <select id="seatSelect">
+                    <option value="">No seat assigned</option>
+                </select>
+            </div>
+            <div style="display: flex; gap: 10px; margin-top: 15px;">
+                <button onclick="confirmSeatChange()" style="flex: 1;">Change Seat</button>
+                <button onclick="closeChangeSeatModal()" style="flex: 1; background: #666;">Cancel</button>
+            </div>
+            <div style="margin-top: 10px;">
+                <button onclick="randomlyAssignAllSeats()" style="width: 100%; background: linear-gradient(45deg, #26de81, #20bf6b);">
+                    🎲 Randomly Assign All Seats
                 </button>
             </div>
         </div>
@@ -805,10 +832,25 @@ Sam</textarea>
         // Track storyteller workflow state
         let storytellerWorkflowState = 'distribute_roles'; // 'distribute_roles', 'minion_demon_info', 'night_action'
 
+        // Role count values
+        const ROLE_COUNTS = {
+            5: { townsfolk: 3, outsider: 0, minion: 1, demon: 1 },
+            6: { townsfolk: 3, outsider: 1, minion: 1, demon: 1 },
+            7: { townsfolk: 5, outsider: 0, minion: 1, demon: 1 },
+            8: { townsfolk: 5, outsider: 1, minion: 1, demon: 1 },
+            9: { townsfolk: 5, outsider: 2, minion: 1, demon: 1 },
+            10: { townsfolk: 7, outsider: 0, minion: 2, demon: 1 },
+            11: { townsfolk: 7, outsider: 1, minion: 2, demon: 1 },
+            12: { townsfolk: 7, outsider: 2, minion: 2, demon: 1 },
+            13: { townsfolk: 9, outsider: 0, minion: 3, demon: 1 },
+            14: { townsfolk: 9, outsider: 1, minion: 3, demon: 1 },
+            15: { townsfolk: 9, outsider: 2, minion: 3, demon: 1 }
+        }
 
         // Embedded script definitions
         const ROLES = {
-            'washerwoman': {
+            // TB
+            washerwoman: {
                 id: 'washerwoman',
                 name: 'Washerwoman',
                 team: 'townsfolk',
@@ -817,7 +859,7 @@ Sam</textarea>
                 otherNights: false,
                 nightActionTemplates: [['Either {player1} or {player2} is the {townsfolk_role}.']],
             },
-            'librarian': {
+            librarian: {
                 id: 'librarian',
                 name: 'Librarian',
                 team: 'townsfolk',
@@ -826,7 +868,7 @@ Sam</textarea>
                 otherNights: false,
                 nightActionTemplates: [['Either {player1} or {player2} is the {outsider_role}.']],
             },
-            'investigator': {
+            investigator: {
                 id: 'investigator',
                 name: 'Investigator',
                 team: 'townsfolk',
@@ -835,7 +877,7 @@ Sam</textarea>
                 otherNights: false,
                 nightActionTemplates: [['Either {player1} or {player2} is the {minion_role}.']],
             },
-            'chef': {
+            chef: {
                 id: 'chef',
                 name: 'Chef',
                 team: 'townsfolk',
@@ -844,7 +886,7 @@ Sam</textarea>
                 otherNights: false,
                 nightActionTemplates: [['You learn that there are {number} pairs of evil players.']],
             },
-            'empath': {
+            empath: {
                 id: 'empath',
                 name: 'Empath',
                 team: 'townsfolk',
@@ -853,7 +895,7 @@ Sam</textarea>
                 otherNights: true,
                 nightActionTemplates: [['{number} of your living neighbors are evil.']],
             },
-            'fortune_teller': {
+            fortune_teller: {
                 id: 'fortune_teller',
                 name: 'Fortune Teller',
                 team: 'townsfolk',
@@ -866,7 +908,7 @@ Sam</textarea>
                     ['No, neither of them is the Demon.'],
                 ]
             },
-            'undertaker': {
+            undertaker: {
                 id: 'undertaker',
                 name: 'Undertaker',
                 team: 'townsfolk',
@@ -875,7 +917,7 @@ Sam</textarea>
                 otherNights: true,
                 nightActionTemplates: [['Today, the {role} died by execution.']],
             },
-            'monk': {
+            monk: {
                 id: 'monk',
                 name: 'Monk',
                 team: 'townsfolk',
@@ -884,7 +926,7 @@ Sam</textarea>
                 otherNights: true,
                 nightActionTemplates: [['Choose a player to protect tonight.', 'I choose to protect {player1}.']],
             },
-            'ravenkeeper': {
+            ravenkeeper: {
                 id: 'ravenkeeper',
                 name: 'Ravenkeeper',
                 team: 'townsfolk',
@@ -896,7 +938,7 @@ Sam</textarea>
                     ['You learn that {player1} is the {role}.']
                 ]
             },
-            'virgin': {
+            virgin: {
                 id: 'virgin',
                 name: 'Virgin',
                 team: 'townsfolk',
@@ -904,7 +946,7 @@ Sam</textarea>
                 firstNight: false,
                 otherNights: false,
             },
-            'slayer': {
+            slayer: {
                 id: 'slayer',
                 name: 'Slayer',
                 team: 'townsfolk',
@@ -912,7 +954,7 @@ Sam</textarea>
                 firstNight: false,
                 otherNights: false,
             },
-            'soldier': {
+            soldier: {
                 id: 'soldier',
                 name: 'Soldier',
                 team: 'townsfolk',
@@ -920,7 +962,7 @@ Sam</textarea>
                 firstNight: false,
                 otherNights: false,
             },
-            'mayor': {
+            mayor: {
                 id: 'mayor',
                 name: 'Mayor',
                 team: 'townsfolk',
@@ -928,7 +970,7 @@ Sam</textarea>
                 firstNight: false,
                 otherNights: false,
             },
-            'noble': {
+            noble: {
                 id: 'noble',
                 name: 'Noble',
                 team: 'townsfolk',
@@ -937,7 +979,7 @@ Sam</textarea>
                 otherNights: false,
                 nightActionTemplates: [['You learn that 1 of {player1}, {player2}, or {player3} is evil.']],
             },
-            'knight': {
+            knight: {
                 id: 'knight',
                 name: 'Knight',
                 team: 'townsfolk',
@@ -946,7 +988,7 @@ Sam</textarea>
                 otherNights: false,
                 nightActionTemplates: [['You learn that {player1} and {player2} are not the Demon.']],
             },
-            'philosopher': {
+            philosopher: {
                 id: 'philosopher',
                 name: 'Philosopher',
                 team: 'townsfolk',
@@ -958,8 +1000,7 @@ Sam</textarea>
                     ['Choose a good character to gain their ability.', 'I choose {good_role}.'],
                 ],
             },
-
-            'butler': {
+            butler: {
                 id: 'butler',
                 name: 'Butler',
                 team: 'outsider',
@@ -968,7 +1009,7 @@ Sam</textarea>
                 otherNights: true,
                 nightActionTemplates: [['Choose your master for tomorrow.', 'I choose {player1} as my master.']],
             },
-            'drunk': {
+            drunk: {
                 id: 'drunk',
                 name: 'Drunk',
                 team: 'outsider',
@@ -977,7 +1018,7 @@ Sam</textarea>
                 firstNight: false,
                 otherNights: false,
             },
-            'recluse': {
+            recluse: {
                 id: 'recluse',
                 name: 'Recluse',
                 team: 'outsider',
@@ -985,7 +1026,7 @@ Sam</textarea>
                 firstNight: false,
                 otherNights: false,
             },
-            'saint': {
+            saint: {
                 id: 'saint',
                 name: 'Saint',
                 team: 'outsider',
@@ -993,7 +1034,7 @@ Sam</textarea>
                 firstNight: false,
                 otherNights: false,
             },
-            'poisoner': {
+            poisoner: {
                 id: 'poisoner',
                 name: 'Poisoner',
                 team: 'minion',
@@ -1002,7 +1043,7 @@ Sam</textarea>
                 otherNights: true,
                 nightActionTemplates: [['Choose a player to poison.', 'I choose to poison {player1}.']],
             },
-            'spy': {
+            spy: {
                 id: 'spy',
                 name: 'Spy',
                 team: 'minion',
@@ -1010,7 +1051,7 @@ Sam</textarea>
                 firstNight: true,
                 otherNights: true,
             },
-            'scarlet_woman': {
+            scarlet_woman: {
                 id: 'scarlet_woman',
                 name: 'Scarlet Woman',
                 team: 'minion',
@@ -1019,7 +1060,7 @@ Sam</textarea>
                 otherNights: true,
                 nightActionTemplates: [['You are the {demon_role}.']]
             },
-            'baron': {
+            baron: {
                 id: 'baron',
                 name: 'Baron',
                 team: 'minion',
@@ -1027,16 +1068,7 @@ Sam</textarea>
                 firstNight: false,
                 otherNights: false,
             },
-            'witch': {
-                id: 'witch',
-                name: 'Witch',
-                team: 'minion',
-                ability: 'Each night, choose a player: if they nominate tomorrow, they die. If only 3 players live, you lose this ability.',
-                firstNight: true,
-                otherNights: true,
-                nightActionTemplates: [['Choose a player to curse.', 'I choose {player}.']],
-            },
-            'imp': {
+            imp: {
                 id: 'imp',
                 name: 'Imp',
                 team: 'demon',
@@ -1044,11 +1076,11 @@ Sam</textarea>
                 firstNight: false,
                 otherNights: true,
                 nightActionTemplates: [
-                    ['These three roles are not in play: {bluff_role1}, {bluff_role2}, {bluff_role3}.'],
                     ['Choose a player to kill tonight. Choose yourself to make one of your minions the new Imp.', 'I choose to kill {player1}.']
                 ],
             },
-            'grandmother': {
+            // BMR
+            grandmother: {
                 id: 'grandmother',
                 name: 'Grandmother',
                 team: 'townsfolk',
@@ -1057,7 +1089,7 @@ Sam</textarea>
                 otherNights: false,
                 nightActionTemplates: [['You learn {player} is the {role}.']]
             },
-            'sailor': {
+            sailor: {
                 id: 'sailor',
                 name: 'Sailor',
                 team: 'townsfolk',
@@ -1066,7 +1098,7 @@ Sam</textarea>
                 otherNights: true,
                 nightActionTemplates: [['Choose a player.', 'I choose {player}.']],
             },
-            'chambermaid': {
+            chambermaid: {
                 id: 'chambermaid',
                 name: 'Chambermaid',
                 team: 'townsfolk',
@@ -1075,7 +1107,7 @@ Sam</textarea>
                 otherNights: true,
                 nightActionTemplates: [['Choose two alive players.', 'I choose {player1} and {player2}.']],
             },
-            'exorcist': {
+            exorcist: {
                 id: 'exorcist',
                 name: 'Exorcist',
                 team: 'townsfolk',
@@ -1084,7 +1116,7 @@ Sam</textarea>
                 otherNights: true,
                 nightActionTemplates: [['Choose a player.', 'I choose {player}.']],
             },
-            'innkeeper': {
+            innkeeper: {
                 id: 'innkeeper',
                 name: 'Innkeeper',
                 team: 'townsfolk',
@@ -1093,7 +1125,7 @@ Sam</textarea>
                 otherNights: true,
                 nightActionTemplates: [['Choose two players.', 'I choose {player1} and {player2}.']],
             },
-            'gambler': {
+            gambler: {
                 id: 'gambler',
                 name: 'Gambler',
                 team: 'townsfolk',
@@ -1102,7 +1134,7 @@ Sam</textarea>
                 otherNights: true,
                 nightActionTemplates: [['Choose a player and a character.', 'I guess {player} is {role}.']],
             },
-            'gossip': {
+            gossip: {
                 id: 'gossip',
                 name: 'Gossip',
                 team: 'townsfolk',
@@ -1110,7 +1142,7 @@ Sam</textarea>
                 firstNight: false,
                 otherNights: true,
             },
-            'courtier': {
+            courtier: {
                 id: 'courtier',
                 name: 'Courtier',
                 team: 'townsfolk',
@@ -1122,7 +1154,7 @@ Sam</textarea>
                     ['Choose a character.', 'I choose {role}.'],
                 ],
             },
-            'professor': {
+            professor: {
                 id: 'professor',
                 name: 'Professor',
                 team: 'townsfolk',
@@ -1134,7 +1166,7 @@ Sam</textarea>
                     ['Choose a dead player.', 'I choose {player}.'],
                 ],
             },
-            'minstrel': {
+            minstrel: {
                 id: 'minstrel',
                 name: 'Minstrel',
                 team: 'townsfolk',
@@ -1142,7 +1174,7 @@ Sam</textarea>
                 firstNight: false,
                 otherNights: false,
             },
-            'tea_lady': {
+            tea_lady: {
                 id: 'tea_lady',
                 name: 'Tea Lady',
                 team: 'townsfolk',
@@ -1150,7 +1182,7 @@ Sam</textarea>
                 firstNight: false,
                 otherNights: false,
             },
-            'pacifist': {
+            pacifist: {
                 id: 'pacifist',
                 name: 'Pacifist',
                 team: 'townsfolk',
@@ -1158,7 +1190,7 @@ Sam</textarea>
                 firstNight: false,
                 otherNights: false,
             },
-            'fool': {
+            fool: {
                 id: 'fool',
                 name: 'Fool',
                 team: 'townsfolk',
@@ -1166,7 +1198,7 @@ Sam</textarea>
                 firstNight: false,
                 otherNights: false,
             },
-            'goon': {
+            goon: {
                 id: 'goon',
                 name: 'Goon',
                 team: 'outsider',
@@ -1175,7 +1207,7 @@ Sam</textarea>
                 otherNights: true,
                 nightActionTemplates: [['You are {goodevil}.']]
             },
-            'lunatic': {
+            lunatic: {
                 id: 'lunatic',
                 name: 'Lunatic',
                 team: 'outsider',
@@ -1187,7 +1219,7 @@ Sam</textarea>
                     ['These three roles are not in play: {good_role1}, {good_role2}, {good_role3}.'],
                 ]
             },
-            'tinker': {
+            tinker: {
                 id: 'tinker',
                 name: 'Tinker',
                 team: 'outsider',
@@ -1195,7 +1227,7 @@ Sam</textarea>
                 firstNight: false,
                 otherNights: true,
             },
-            'moonchild': {
+            moonchild: {
                 id: 'moonchild',
                 name: 'Moonchild',
                 team: 'outsider',
@@ -1203,7 +1235,7 @@ Sam</textarea>
                 firstNight: false,
                 otherNights: false,
             },
-            'godfather': {
+            godfather: {
                 id: 'godfather',
                 name: 'Godfather',
                 team: 'minion',
@@ -1212,7 +1244,7 @@ Sam</textarea>
                 otherNights: true,
                 nightActionTemplates: [['You learn that {role} is in play'], ['Choose a player to kill.', 'I choose {player}.']],
             },
-            'devils_advocate': {
+            devils_advocate: {
                 id: 'devils_advocate',
                 name: 'Devil\'s Advocate',
                 team: 'minion',
@@ -1221,7 +1253,7 @@ Sam</textarea>
                 otherNights: true,
                 nightActionTemplates: [['Choose a player.', 'I choose {player}.']],
             },
-            'assassin': {
+            assassin: {
                 id: 'assassin',
                 name: 'Assassin',
                 team: 'minion',
@@ -1233,7 +1265,7 @@ Sam</textarea>
                     ['Choose a player.', 'I choose {player}.'],
                 ],
             },
-            'mastermind': {
+            mastermind: {
                 id: 'mastermind',
                 name: 'Mastermind',
                 team: 'minion',
@@ -1241,7 +1273,7 @@ Sam</textarea>
                 firstNight: false,
                 otherNights: false,
             },
-            'zombuul': {
+            zombuul: {
                 id: 'zombuul',
                 name: 'Zombuul',
                 team: 'demon',
@@ -1249,11 +1281,10 @@ Sam</textarea>
                 firstNight: false,
                 otherNights: true,
                 nightActionTemplates: [
-                    ['These three roles are not in play: {bluff_role1}, {bluff_role2}, {bluff_role3}.'],
                     ['Choose a player to kill tonight.', 'I choose to kill {player1}.']
                 ],
             },
-            'pukka': {
+            pukka: {
                 id: 'pukka',
                 name: 'Pukka',
                 team: 'demon',
@@ -1261,11 +1292,10 @@ Sam</textarea>
                 firstNight: true,
                 otherNights: true,
                 nightActionTemplates: [
-                    ['These three roles are not in play: {bluff_role1}, {bluff_role2}, {bluff_role3}.'],
                     ['Choose a player to poison tonight and kill tomorrow.', 'I choose {player1}.']
                 ],
             },
-            'shabaloth': {
+            shabaloth: {
                 id: 'shabaloth',
                 name: 'Shabaloth',
                 team: 'demon',
@@ -1273,11 +1303,10 @@ Sam</textarea>
                 firstNight: false,
                 otherNights: true,
                 nightActionTemplates: [
-                    ['These three roles are not in play: {bluff_role1}, {bluff_role2}, {bluff_role3}.'],
                     ['Choose two players.', 'I choose {player1} and {player2}.']
                 ],
             },
-            'po': {
+            po: {
                 id: 'po',
                 name: 'Po',
                 team: 'demon',
@@ -1285,12 +1314,277 @@ Sam</textarea>
                 firstNight: false,
                 otherNights: true,
                 nightActionTemplates: [
-                    ['These three roles are not in play: {bluff_role1}, {bluff_role2}, {bluff_role3}.'],
                     ['Choose a player.', 'I choose {player}.'],
                     ['Choose three players.', 'I choose {player1}, {player2}, and {player3}.'],
                 ],
             },
-            'yaggababble': {
+            // S&V
+            clockmaker: {
+                id: 'clockmaker',
+                name: 'Clockmaker',
+                team: 'townsfolk',
+                ability: 'You start knowing how many steps from the Demon to its nearest Minion.',
+                firstNight: true,
+                otherNights: false,
+                nightActionTemplates: [
+                    ['The Demon is {number} steps from their nearest Minion.']
+                ],
+            },
+            dreamer: {
+                id: 'dreamer',
+                name: 'Dreamer',
+                team: 'townsfolk',
+                ability: 'Each night, choose a player (not yourself or Travellers): you learn 1 good and 1 evil role, 1 of which is correct.',
+                firstNight: true,
+                otherNights: true,
+                nightActionTemplates: [
+                    ['Choose a player.', 'I choose {player}.'],
+                    ['You learn {good_role} or {evil_role}.']
+                ],
+            },
+            snake_charmer: {
+                id: 'snake_charmer',
+                name: 'Snake Charmer',
+                team: 'townsfolk',
+                ability: 'Each night, choose an alive player: a chosen Demon swaps characters & alignments with you & is then poisoned.',
+                firstNight: true,
+                otherNights: true,
+                nightActionTemplates: [
+                    ['Choose a player.', 'I choose {player}.'],
+                    ['You are the {demon_role}. You are {goodevil}.']
+                ],
+            },
+            mathematician: {
+                id: 'mathematician',
+                name: 'Mathematician',
+                team: 'townsfolk',
+                ability: 'Each night, you learn how many players\' abilities worked abnormally (since dawn) due to another character\'s ability.',
+                firstNight: true,
+                otherNights: true,
+                nightActionTemplates: [
+                    ['{number} players\' abilities worked abnormally (since dawn) due to another character\'s ability.']
+                ],
+            },
+            flowergirl: {
+                id: 'flowergirl',
+                name: 'Flowergirl',
+                team: 'townsfolk',
+                ability: 'Each night*, you learn if a Demon voted today.',
+                firstNight: false,
+                otherNights: true,
+                nightActionTemplates: [
+                    ['{yesno}, a Demon voted today.']
+                ],
+            },
+            town_crier: {
+                id: 'town_crier',
+                name: 'Town Crier',
+                team: 'townsfolk',
+                ability: 'Each night*, you learn if a Minion nominated today.',
+                firstNight: false,
+                otherNights: true,
+                nightActionTemplates: [
+                    ['{yesno}, a Minion nominated today.']
+                ],
+            },
+            oracle: {
+                id: 'oracle',
+                name: 'Oracle',
+                team: 'townsfolk',
+                ability: 'Each night*, you learn how many dead players are evil.',
+                firstNight: false,
+                otherNights: true,
+                nightActionTemplates: [
+                    ['{number} dead players are evil.']
+                ],
+            },
+            savant: {
+                id: 'savant',
+                name: 'Savant',
+                team: 'townsfolk',
+                ability: 'Each day, you may visit the Storyteller to learn 2 things in private: 1 is true & 1 is false.',
+                firstNight: false,
+                otherNights: false,
+            },
+            seamstress: {
+                id: 'seamstress',
+                name: 'Seamstress',
+                team: 'townsfolk',
+                ability: 'Once per game, at night, choose 2 players (not yourself): you learn if they are the same alignment.',
+                firstNight: true,
+                otherNights: true,
+                nightActionTemplates: [
+                    ['Do you wish to use your once-per-game ability?', 'I choose {yesno}.'],
+                    ['Choose two players.', 'I choose {player1} and {player2}.'],
+                    ['Yes, they are the same alignment.'],
+                    ['No, they are not the same alignment.']
+                ],
+            },
+            philosopher: {
+                id: 'philosopher',
+                name: 'Philosopher',
+                team: 'townsfolk',
+                ability: 'Once per game, at night, choose a good character: you gain that ability. If this character is in play, they are drunk.',
+                firstNight: true,
+                otherNights: true,
+                nightActionTemplates: [
+                    ['Do you wish to use your once-per-game ability?', 'I choose {yesno}.'],
+                    ['Choose a good character.', 'I choose {good_role}.'],
+                    ['You have the {good_role} ability. If there was a {good_role} in play, they are now drunk.']
+                ],
+            },
+            artist: {
+                id: 'artist',
+                name: 'Artist',
+                team: 'townsfolk',
+                ability: 'Once per game, during the day, privately ask the Storyteller any yes/no question.',
+                firstNight: false,
+                otherNights: false,
+            },
+            juggler: {
+                id: 'juggler',
+                name: 'Juggler',
+                team: 'townsfolk',
+                ability: 'On your 1st day, publicly guess up to 5 players\' characters. That night, you learn how many you got correct.',
+                firstNight: false,
+                otherNights: true,
+                nightActionTemplates: [
+                    ['You learn a {numer}.']
+                ],
+            },
+            sage: {
+                id: 'sage',
+                name: 'Sage',
+                team: 'townsfolk',
+                ability: 'If the Demon kills you, you learn that it is 1 of 2 players.',
+                firstNight: false,
+                otherNights: false,
+                nightActionTemplates: [
+                    ['One of these players is the Demon: {player1} or {player2}.']
+                ],
+            },
+            mutant: {
+                id: 'mutant',
+                name: 'Mutant',
+                team: 'outsider',
+                ability: 'If you are "mad" about being an Outsider, you might be executed.',
+                firstNight: false,
+                otherNights: false,
+            },
+            sweetheart: {
+                id: 'sweetheart',
+                name: 'Sweetheart',
+                team: 'outsider',
+                ability: 'When you die, 1 player is drunk from now on.',
+                firstNight: false,
+                otherNights: false,
+            },
+            barber: {
+                id: 'barber',
+                name: 'Barber',
+                team: 'outsider',
+                ability: 'If you died today or tonight, the Demon may choose 2 players (not another Demon) to swap characters.',
+                firstNight: false,
+                otherNights: false,
+            },
+            klutz: {
+                id: 'klutz',
+                name: 'Klutz',
+                team: 'outsider',
+                ability: 'When you learn that you died, publicly choose 1 alive player: if they are evil, your team loses.',
+                firstNight: false,
+                otherNights: false,
+            },
+            evil_twin: {
+                id: 'evil_twin',
+                name: 'Evil Twin',
+                team: 'minion',
+                ability: 'You & an opposing player know each other. If the good player is executed, evil wins. Good can\'t win if you both live.',
+                firstNight: true,
+                otherNights: false,
+                nightActionTemplates: [
+                    ['The good twin is {player}. They are the {goodrole}.']
+                ],
+            },
+            witch: {
+                id: 'witch',
+                name: 'Witch',
+                team: 'minion',
+                ability: 'Each night, choose a player: if they nominate tomorrow, they die. If just 3 players live, you lose this ability.',
+                firstNight: true,
+                otherNights: true,
+                nightActionTemplates: [
+                    ['Choose a player.', 'I choose {player}.'],
+                ],
+            },
+            cerenovus: {
+                id: 'cerenovus',
+                name: 'Cerenovus',
+                team: 'minion',
+                ability: 'Each night, choose a player & a good character: they are "mad" they are this character tomorrow, or might be executed.',
+                firstNight: true,
+                otherNights: true,
+                nightActionTemplates: [
+                    ['Choose a player and a good character.', 'I choose {player} to be mad about being the {good_character}.'],
+                ],
+            },
+            pit_hag: {
+                id: 'pit_hag',
+                name: 'Pit-Hag',
+                team: 'minion',
+                ability: 'Each night*, choose a player & a character they become (if not-in-play). If a Demon is made, deaths tonight are arbitrary.',
+                firstNight: false,
+                otherNights: true,
+                nightActionTemplates: [
+                    ['Choose a player and a character not in play.', 'I choose {player} to become the {character}.'],
+                ]
+            },
+            fang_gu: {
+                id: 'fang_gu',
+                name: 'Fang Gu',
+                team: 'demon',
+                ability: 'Each night*, choose a player: they die. The 1st Outsider this kills becomes an evil Fang Gu & you die instead. [+1 Outsider]',
+                firstNight: false,
+                otherNights: true,
+                nightActionTemplates: [
+                    ['Choose a player.', 'I choose {player}.'],
+                ]
+            },
+            vigormortis: {
+                id: 'vigormortis',
+                name: 'Vigormortis',
+                team: 'demon',
+                ability: 'Each night*, choose a player: they die. Minions you kill keep their ability & poison 1 Townsfolk neighbor. [-1 Outsider]',
+                firstNight: false,
+                otherNights: true,
+                nightActionTemplates: [
+                    ['Choose a player.', 'I choose {player}.'],
+                ]
+            },
+            no_dashii: {
+                id: 'no_dashii',
+                name: 'No Dashii',
+                team: 'demon',
+                ability: 'Each night*, choose a player: they die. Your 2 Townsfolk neighbors are poisoned.',
+                firstNight: false,
+                otherNights: true,
+                nightActionTemplates: [
+                    ['Choose a player.', 'I choose {player}.'],
+                ]
+            },
+            vortox: {
+                id: 'vortox',
+                name: 'Vortox',
+                team: 'demon',
+                ability: 'Each night*, choose a player: they die. Townsfolk abilities yield false info. Each day, if no-one is executed, evil wins.',
+                firstNight: false,
+                otherNights: true,
+                nightActionTemplates: [
+                    ['Choose a player.', 'I choose {player}.'],
+                ]
+            },
+            // Experimental
+            yaggababble: {
                 id: 'yaggababble',
                 name: 'Yaggababble',
                 team: 'demon',
@@ -1303,12 +1597,19 @@ Sam</textarea>
             },
         };
 
+        Object.entries(ROLES).forEach(([key, role]) => {
+            if (role.team === 'demon') {
+                console.log('unshifting')
+                role.nightActionTemplates.unshift(['These three roles are not in play: {bluff_role1}, {bluff_role2}, {bluff_role3}.'])
+            }
+        })
+
         const EMBEDDED_SCRIPTS = {
-            'trouble_brewing': {
+            trouble_brewing: {
                 id: 'trouble_brewing',
                 name: 'Trouble Brewing',
                 author: 'Steven Medway & The Pandemonium Institute',
-                description: 'The original Blood on the Clocktower script. Perfect for beginners.',
+                description: 'Beginner. Recommended for players and Storytellers new to Blood on the Clocktower or to social deception games.',
                 roles: [
                     'washerwoman', 'librarian', 'investigator', 'chef', 'empath', 'fortune_teller',
                     'undertaker', 'monk', 'ravenkeeper', 'virgin', 'slayer', 'soldier', 'mayor',
@@ -1321,26 +1622,13 @@ Sam</textarea>
                 ],
                 other_night_order: [
                     'poisoner', 'monk', 'spy', 'scarlet_woman', 'imp', 'ravenkeeper', 'undertaker', 'empath', 'fortune_teller', 'butler'
-                ],
-                setup: {
-                    5: { townsfolk: 3, outsider: 0, minion: 1, demon: 1 },
-                    6: { townsfolk: 3, outsider: 1, minion: 1, demon: 1 },
-                    7: { townsfolk: 5, outsider: 0, minion: 1, demon: 1 },
-                    8: { townsfolk: 5, outsider: 1, minion: 1, demon: 1 },
-                    9: { townsfolk: 5, outsider: 2, minion: 1, demon: 1 },
-                    10: { townsfolk: 7, outsider: 0, minion: 2, demon: 1 },
-                    11: { townsfolk: 7, outsider: 1, minion: 2, demon: 1 },
-                    12: { townsfolk: 7, outsider: 2, minion: 2, demon: 1 },
-                    13: { townsfolk: 9, outsider: 0, minion: 3, demon: 1 },
-                    14: { townsfolk: 9, outsider: 1, minion: 3, demon: 1 },
-                    15: { townsfolk: 9, outsider: 2, minion: 3, demon: 1 }
-                }
+                ]
             },
-            'bad_moon_rising': {
+            bad_moon_rising: {
                 id: 'bad_moon_rising',
                 name: 'Bad Moon Rising',
                 author: 'Steven Medway & The Pandemonium Institute',
-                description: 'An intermediate script featuring madness, dead votes, and exile.',
+                description: 'Intermediate. Recommended for players who are proactive, dedicated to working as a team, and don\'t fear dying.',
                 roles: [
                     'grandmother', 'sailor', 'chambermaid', 'exorcist', 'innkeeper', 'gambler',
                     'gossip', 'courtier', 'professor', 'minstrel', 'tea_lady', 'pacifist', 'fool',
@@ -1353,22 +1641,31 @@ Sam</textarea>
                 ],
                 other_night_order: [
                     'minstrel', 'sailor', 'innkeeper', 'courtier', 'gambler', 'devils_advocate', 'lunatic', 'exorcist', 'zombuul', 'pukka', 'shabaloth', 'po', 'assassin', 'godfather', 'professor', 'gossip', 'tinker', 'moonchild', 'grandmother', 'chambermaid', 'goon'
-                ],
-                setup: {
-                    5: { townsfolk: 3, outsider: 0, minion: 1, demon: 1 },
-                    6: { townsfolk: 3, outsider: 1, minion: 1, demon: 1 },
-                    7: { townsfolk: 5, outsider: 0, minion: 1, demon: 1 },
-                    8: { townsfolk: 5, outsider: 1, minion: 1, demon: 1 },
-                    9: { townsfolk: 5, outsider: 2, minion: 1, demon: 1 },
-                    10: { townsfolk: 7, outsider: 0, minion: 2, demon: 1 },
-                    11: { townsfolk: 7, outsider: 1, minion: 2, demon: 1 },
-                    12: { townsfolk: 7, outsider: 2, minion: 2, demon: 1 },
-                    13: { townsfolk: 9, outsider: 0, minion: 3, demon: 1 },
-                    14: { townsfolk: 9, outsider: 1, minion: 3, demon: 1 },
-                    15: { townsfolk: 9, outsider: 2, minion: 3, demon: 1 }
-                }
+                ]
             },
-            'trouble_babbling': {
+            sects_and_violets: {
+                id: 'sects_and_violets',
+                name: 'Sects & Violets',
+                author: 'Steven Medway & The Pandemonium Institute',
+                description: 'Intermediate. Recommended for players who want to do wild and unexpected things, pushing the limits of what can be achieved in a bluffing game.',
+                roles: [
+                    'clockmaker', 'dreamer', 'snake_charmer', 'mathematician', 'flowergirl', 'town_crier',
+                    'oracle', 'savant', 'seamstress', 'philosopher', 'artist', 'juggler', 'sage',
+                    'mutant', 'sweetheart', 'barber', 'klutz',
+                    'evil_twin', 'witch', 'cerenovus', 'pit_hag',
+                    'fang_gu', 'vigormortis', 'no_dashii', 'vortox'
+                ],
+                first_night_order: [
+                    'evil_twin', 'philosopher', 'clockmaker', 'dreamer', 'snake_charmer', 'mathematician',
+                    'seamstress', 'witch', 'cerenovus'
+                ],
+                other_night_order: [
+                    'philosopher', 'dreamer', 'snake_charmer', 'mathematician', 'flowergirl', 'town_crier',
+                    'oracle', 'seamstress', 'juggler', 'witch', 'cerenovus', 'pit_hag', 'fang_gu',
+                    'vigormortis', 'no_dashii', 'vortox', 'sage', 'sweetheart', 'barber'
+                ]
+            },
+            trouble_babbling: {
                 id: 'trouble_babbling',
                 name: 'Trouble Babbling',
                 author: 'Community Script',
@@ -1385,20 +1682,7 @@ Sam</textarea>
                 ],
                 other_night_order: [
                     'philosopher', 'monk', 'witch', 'scarlet_woman', 'imp', 'po', 'yaggababble', 'godfather', 'gossip', 'ravenkeeper', 'empath', 'fortune_teller', 'undertaker', 'butler', 'gambler'
-                ],
-                setup: {
-                    5: { townsfolk: 3, outsider: 0, minion: 1, demon: 1 },
-                    6: { townsfolk: 3, outsider: 1, minion: 1, demon: 1 },
-                    7: { townsfolk: 5, outsider: 0, minion: 1, demon: 1 },
-                    8: { townsfolk: 5, outsider: 1, minion: 1, demon: 1 },
-                    9: { townsfolk: 5, outsider: 2, minion: 1, demon: 1 },
-                    10: { townsfolk: 7, outsider: 0, minion: 2, demon: 1 },
-                    11: { townsfolk: 7, outsider: 1, minion: 2, demon: 1 },
-                    12: { townsfolk: 7, outsider: 2, minion: 2, demon: 1 },
-                    13: { townsfolk: 9, outsider: 0, minion: 3, demon: 1 },
-                    14: { townsfolk: 9, outsider: 1, minion: 3, demon: 1 },
-                    15: { townsfolk: 9, outsider: 2, minion: 3, demon: 1 }
-                }
+                ]
             },
         };
 
@@ -1586,13 +1870,13 @@ Sam</textarea>
 
                     // Calculate target distribution
                     const playerCount = players.length;
-                    if (currentScript.setup && currentScript.setup[playerCount]) {
-                        targetDistribution = currentScript.setup[playerCount];
+                    if (ROLE_COUNTS[playerCount]) {
+                        targetDistribution = ROLE_COUNTS[playerCount];
                         currentGameId = generateGameId(currentRoom);
                         showRoleSelectionScreen();
                         return; // Don't proceed to game yet
                     } else {
-                        alert(`No setup defined for ${playerCount} players in this script`);
+                        alert(`No setup defined for ${playerCount} players`);
                         return;
                     }
 
@@ -1608,11 +1892,11 @@ Sam</textarea>
                             separator.disabled = true;
                             targetSelect.appendChild(separator);
                         } else {
-			    const option = document.createElement('option');
+                            const option = document.createElement('option');
                             option.value = player;
                             option.textContent = player;
                             targetSelect.appendChild(option);
-			}
+                        }
                     });
                 }
 
@@ -1738,6 +2022,10 @@ Sam</textarea>
                 }
             }
 
+            if (message.type === 'seat_assignment' && message.gameId === currentGameId && message.players) {
+                players = message.players;
+            }
+
             // Update role assignments from more recent role_assignment messages
             if (message.type === 'role_assignment' && message.gameId === currentGameId && message.playerRoles) {
                 playerRoles = { ...playerRoles, ...message.playerRoles };
@@ -1835,8 +2123,6 @@ Sam</textarea>
 
 
             if (message.type === 'game_setup') {
-
-
                 // For players, always consider all game_setup messages to find the most recent
                 // For storytellers, only process messages that match their current game
                 if (userType === 'player') {
@@ -1855,7 +2141,6 @@ Sam</textarea>
                         // Process this setup message
                         players = message.players;
 
-                        
                         // Process script information
                         if (message.script) {
                             if (typeof message.script === 'string') {
@@ -1864,7 +2149,7 @@ Sam</textarea>
                             } else {
                                 currentScript = message.script;
                             }
-                            
+
                             // Update script display if we're on the game screen
                             const scriptEl = document.getElementById('displayScript');
                             if (scriptEl && currentScript) {
@@ -1902,7 +2187,7 @@ Sam</textarea>
                         // If it's already an object, use it directly
                         currentScript = message.script;
                     }
-                    
+
                     // Update script display if we're on the game screen
                     const scriptEl = document.getElementById('displayScript');
                     if (scriptEl && currentScript) {
@@ -1925,6 +2210,13 @@ Sam</textarea>
                     playerRoles = message.playerRoles;
                     updatePlayersList();
                 }
+            } else if (message.type === 'seat_assignment' && userType === 'storyteller' &&
+                      message.gameId === currentGameId) {
+                // Update local role assignments
+                if (message.players) {
+                    players = message.players;
+                    updatePlayersList();
+                }
             } else if (message.type === 'reminder_update' && userType === 'storyteller' &&
                        message.gameId === currentGameId) {
                 // Update local reminder assignments
@@ -1943,37 +2235,36 @@ Sam</textarea>
             } else if (message.type === 'nightfall' && message.gameId === currentGameId) {
                 setNightPhase();
             } else if (message.type === 'private_message') {
-		// For players without gameId, adopt it from any valid message
-		if (userType === 'player' && !currentGameId && message.gameId) {
-		    currentGameId = message.gameId;
-		    console.log('Player adopted gameId from message:', currentGameId);
-		    // Update the display
-		    const gameIdEl = document.getElementById('displayGameId');
-		    if (gameIdEl) {
-		        gameIdEl.textContent = currentGameId;
-		    }
-		}
-     
-		// Now check if we should process this message
-		if (message.gameId === currentGameId) {
+                // For players without gameId, adopt it from any valid message
+                if (userType === 'player' && !currentGameId && message.gameId) {
+                    currentGameId = message.gameId;
+                    console.log('Player adopted gameId from message:', currentGameId);
+                    // Update the display
+                    const gameIdEl = document.getElementById('displayGameId');
+                    if (gameIdEl) {
+                        gameIdEl.textContent = currentGameId;
+                    }
+                }
 
-		    console.log('Processing private message:', message);
+                // Now check if we should process this message
+                if (message.gameId === currentGameId) {
 
+                    console.log('Processing private message:', message);
 
                     // Check if this is an echo of our own message
                     if (message.from === currentUser && sentMessages.has(message.timestamp)) {
-			// This is an echo - mark the local message as delivered
-			markMessageDelivered(message.timestamp);
-			return; // Don't display duplicate
+            // This is an echo - mark the local message as delivered
+                        markMessageDelivered(message.timestamp);
+                        return; // Don't display duplicate
                     }
 
                     // If it's not our message or not in sent messages, display normally
                     displayMessage(message);
-		} else {
-		    console.log('Message rejected - gameId mismatch:', message.gameId, 'vs', currentGameId);
-		}
+                } else {
+                    console.log('Message rejected - gameId mismatch:', message.gameId, 'vs', currentGameId);
+                }
             }
-	}
+        }
 
         function switchToGameScreen() {
             document.getElementById('setupScreen').classList.add('hidden');
@@ -1997,7 +2288,7 @@ Sam</textarea>
                 document.getElementById('storytellerControls').classList.remove('hidden');
 
                 // Initialize workflow state
-                updateStorytellerWorkflowUI();            
+                updateStorytellerWorkflowUI();
             }
 
             updatePlayersList();
@@ -2008,7 +2299,7 @@ Sam</textarea>
             document.getElementById('distributeRolesPhase').style.display = 'none';
             document.getElementById('minionDemonPhase').style.display = 'none';
             document.getElementById('nightActionPhase').style.display = 'none';
-            
+
             // Show current phase
             if (storytellerWorkflowState === 'distribute_roles') {
                 document.getElementById('distributeRolesPhase').style.display = 'block';
@@ -2018,13 +2309,12 @@ Sam</textarea>
                 document.getElementById('nightActionPhase').style.display = 'block';
             }
         }
-        
+
         function skipMinionDemonInfo() {
             storytellerWorkflowState = 'night_action';
             updateStorytellerWorkflowUI();
         }
 
- 
         function getLivingPlayerCount() {
             return players.filter(player => playerDeathState[player] !== 'dead').length;
         }
@@ -2051,22 +2341,28 @@ Sam</textarea>
             console.log('updatePlayersList called, playerRoles:', playerRoles);
             console.log('currentScript:', currentScript);
 
-          players.forEach(player => {
+          players.forEach((player, index) => {
             const playerCard = document.createElement('div');
                 playerCard.className = 'player-card';
 
-                // Add death styling if player is dead
+                const seatDiv = document.createElement('div');
+                seatDiv.className = 'seat-num';
+                seatDiv.textContent = `Seat ${index+1}`;
+                playerCard.appendChild(seatDiv);
+
                 const isDead = playerDeathState[player] === 'dead';
-                if (isDead) {
-                    playerCard.style.opacity = '0.5';
-                    playerCard.style.textDecoration = 'line-through';
-                }
 
                 const nameDiv = document.createElement('div');
                 nameDiv.className = 'player-name';
                 nameDiv.textContent = player;
                 nameDiv.textContent = isDead ? `💀 ${player} 💀` : player;
                 playerCard.appendChild(nameDiv);
+
+                // Add death styling if player is dead
+                if (isDead) {
+                    playerCard.style.opacity = '0.5';
+                    nameDiv.style.textDecoration = 'line-through';
+                }
 
                 // Show role if storyteller
                 if (userType === 'storyteller') {
@@ -2123,12 +2419,12 @@ Sam</textarea>
                         separator.textContent = '-----';
                         separator.disabled = true;
                         targetSelect.appendChild(separator);
-		    } else {
-			const option = document.createElement('option');
-			option.value = player;
-			option.textContent = player;
-			targetSelect.appendChild(option);
-		    }
+                    } else {
+                        const option = document.createElement('option');
+                        option.value = player;
+                        option.textContent = player;
+                        targetSelect.appendChild(option);
+                    }
                 });
             }
 
@@ -2141,8 +2437,8 @@ Sam</textarea>
             }
 
             // Determine which night order to use
-            const nightOrder = (dayNightCounter === 1) 
-                ? currentScript.first_night_order 
+            const nightOrder = (dayNightCounter === 1)
+                ? currentScript.first_night_order
                 : currentScript.other_night_order;
 
             if (!nightOrder || nightOrder.length === 0) {
@@ -2158,7 +2454,7 @@ Sam</textarea>
             // First, add players in night order
             nightOrder.forEach(roleId => {
                 // Find the player with this role
-                const playerWithRole = players.find(player => 
+                const playerWithRole = players.find(player =>
                     playerRoles[player] === roleId && !usedPlayers.has(player)
                 );
                 if (playerWithRole) {
@@ -2179,7 +2475,7 @@ Sam</textarea>
                     console.log('getOrderedPlayersForNight Adding remaining player', player);
                     orderedPlayers.push(player);
                 }
-	    });
+        });
 
             console.log('getOrderedPlayersForNight Final ordered players:', orderedPlayers);
             return orderedPlayers;
@@ -2198,11 +2494,11 @@ Sam</textarea>
                         separator.disabled = true;
                         targetSelect.appendChild(separator);
                     } else {
-			const option = document.createElement('option');
-			option.value = player;
-			option.textContent = player;
-			targetSelect.appendChild(option);
-		    }
+                        const option = document.createElement('option');
+                        option.value = player;
+                        option.textContent = player;
+                        targetSelect.appendChild(option);
+                    }
                 });
             }
         }
@@ -2275,8 +2571,8 @@ Sam</textarea>
             // Update death toggle button text based on current state
             const isAlive = playerDeathState[playerName] !== 'dead';
             deathToggleBtn.textContent = isAlive ? '💀 Dies' : '⚡ Reborn';
-            deathToggleBtn.style.background = isAlive ? 
-                'linear-gradient(45deg, #9b59b6, #8e44ad)' : 
+            deathToggleBtn.style.background = isAlive ?
+                'linear-gradient(45deg, #9b59b6, #8e44ad)' :
                 'linear-gradient(45deg, #26de81, #20bf6b)';
 
             modal.classList.remove('hidden');
@@ -2321,8 +2617,8 @@ Sam</textarea>
             let setup;
 
             // Find setup for this player count
-            if (currentScript.setup && currentScript.setup[playerCount]) {
-                setup = currentScript.setup[playerCount];
+            if (ROLE_COUNTS[playerCount]) {
+                setup = ROLE_COUNTS[playerCount];
             } else {
                 alert(`No setup defined for ${playerCount} players in this script`);
                 return;
@@ -2387,11 +2683,45 @@ Sam</textarea>
             closeRoleAssignmentModal();
         }
 
+        function randomlyAssignAllSeats() {
+            if (players.length === 0) {
+                alert('No players');
+                return;
+            }
 
+            const playerCount = players.length;
+
+            // Assign seats to players
+            const shuffledPlayers = [...players];
+            for (let i = shuffledPlayers.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [shuffledPlayers[i], shuffledPlayers[j]] = [shuffledPlayers[j], shuffledPlayers[i]];
+            }
+
+            console.log(shuffledPlayers);
+
+            // Assign seats
+            players = shuffledPlayers
+
+            // Broadcast the new assignments
+            pubnub.publish({
+                channel: currentRoom,
+                message: {
+                    gameId: currentGameId,
+                    type: 'seat_assignment',
+                    players: players,
+                    timestamp: Date.now()
+                }
+            });
+
+            updatePlayersList();
+            closeRoleAssignmentModal();
+        }
 
         // Template Functions
         function useNightActionTemplate() {
             const targetPlayer = document.getElementById('targetPlayer').value;
+
             if (!targetPlayer) {
                 alert('Please select a target player first');
                 return;
@@ -2617,7 +2947,7 @@ Sam</textarea>
                             fieldHtml += '<option value="" disabled>-----</option>';
                         } else {
                             fieldHtml += `<option value="${player}">${player}</option>`;
-			}
+                        }
                     });
                     fieldHtml += '</select>';
 
@@ -2846,7 +3176,7 @@ Sam</textarea>
             // Insert message in chronological order by timestamp
             const existingMessages = messagesContainer.querySelectorAll('.message');
             let insertPosition = null;
-            
+
             for (let i = 0; i < existingMessages.length; i++) {
                 const existingTimestamp = parseInt(existingMessages[i].dataset.timestamp);
                 if (message.timestamp < existingTimestamp) {
@@ -2854,13 +3184,13 @@ Sam</textarea>
                     break;
                 }
             }
-            
+
             if (insertPosition) {
                 messagesContainer.insertBefore(messageEl, insertPosition);
             } else {
                 messagesContainer.appendChild(messageEl);
             }
-	    
+
             // Add response UI for prompts
             if (message.messageType === 'prompt' && message.to === currentUser && userType === 'player') {
                 const responseData = message.templateData;
@@ -2962,7 +3292,7 @@ Sam</textarea>
                             option.value = player;
                             option.textContent = player;
                             input.appendChild(option);
-			}
+                        }
                     });
                 } else {
                     input = document.createElement('input');
@@ -3423,12 +3753,12 @@ Sam</textarea>
                     separator.textContent = '-----';
                     separator.disabled = true;
                     targetSelect.appendChild(separator);
-		} else {
+                } else {
                     const option = document.createElement('option');
                     option.value = player;
                     option.textContent = player;
                     targetSelect.appendChild(option);
-		}
+                }
             });
 
             switchToGameScreen();
@@ -3521,9 +3851,6 @@ Sam</textarea>
                     return; // Cancel distribution
                 }
             }
-
-
-
 
             let sentCount = 0;
 
@@ -3743,6 +4070,66 @@ Sam</textarea>
             closeRoleAssignmentModal();
         }
 
+        function showChangeSeatModal() {
+            if (!selectedPlayerForRole) return;
+
+            const modal = document.getElementById('changeSeatModal');
+            const title = document.getElementById('changeSeatTitle');
+            const seatSelect = document.getElementById('seatSelect');
+
+            title.textContent = `Change Seat for ${selectedPlayerForRole}`;
+
+            // Populate seat dropdown
+            seatSelect.innerHTML = '<option value="">No seat assigned</option>';
+
+            for (i=0;i<players.length;i++) {
+                const option = document.createElement('option');
+                option.value = i;
+                option.textContent = `Seat ${i+1}`;
+                seatSelect.appendChild(option);
+            }
+
+            // Set current seat if any
+            if (playerRoles[selectedPlayerForRole]) {
+                seatSelect.value = players.indexOf(selectedPlayerForRole);
+            }
+
+            // Hide main modal and show change role modal
+            document.getElementById('roleAssignmentModal').classList.add('hidden');
+            modal.classList.remove('hidden');
+        }
+
+        function closeChangeSeatModal() {
+            document.getElementById('changeSeatModal').classList.add('hidden');
+            document.getElementById('roleAssignmentModal').classList.remove('hidden');
+        }
+
+        function confirmSeatChange() {
+            if (!selectedPlayerForRole) return;
+
+            const seatSelect = document.getElementById('seatSelect');
+            const selectedSeat = seatSelect.value || null;
+            const prevSeat = players.indexOf(selectedPlayerForRole);
+
+            // Update local state
+            players.splice(selectedSeat, 0, players.splice(prevSeat, 1)[0]);
+
+            // Broadcast role assignment
+            pubnub.publish({
+                channel: currentRoom,
+                message: {
+                    gameId: currentGameId,
+                    type: 'seat_assignment',
+                    players: players,
+                    timestamp: Date.now()
+                }
+            });
+
+            updatePlayersList();
+            closeChangeSeatModal();
+            closeRoleAssignmentModal();
+        }
+
         function showAddReminderModal() {
             if (!selectedPlayerForRole) return;
 
@@ -3892,7 +4279,7 @@ Sam</textarea>
         function editGameId() {
             const modal = document.getElementById('gameIdEditModal');
             const input = document.getElementById('newGameId');
-            
+
             input.value = currentGameId || '';
             modal.classList.remove('hidden');
             input.focus();
@@ -3905,20 +4292,20 @@ Sam</textarea>
         function confirmGameIdChange() {
             const input = document.getElementById('newGameId');
             const newGameId = input.value.trim();
-            
+
             if (!newGameId) {
                 alert('Please enter a valid game ID');
                 return;
             }
-            
+
             currentGameId = newGameId;
             document.getElementById('displayGameId').textContent = currentGameId;
-            
+
             // If we're a storyteller, broadcast the new game state
             if (userType === 'storyteller') {
                 sendGameSetup();
             }
-            
+
             closeGameIdEditModal();
         }
 
@@ -4178,7 +4565,7 @@ Remove reminder brings up a model with a combo box with all the current reminder
 
      F: Look at this code. Pay attention to the instructions for CLAUDE. I am seeing cases where 1. the storyteller hits the "Distribute Roles" button, but 2. a player is getting the console.log output: Message rejected - no matching condition. and no message is displayed for them, even though on the StoryTeller's side, it claims that it sent the message to that Player.
 
-     F: Look at this code. Pay attention to the instructions for CLAUDE. I want a way to for the storyteller to mark players as being dead, and when a player is marked as dead, it should be reflected on the screens of all the connected players. I will let you decide whether it is better to do it by having all messages carry the lists of "living" and "dead" players (and then have the message processing code update the UI accordingly), or to have a separate message that signals a death. The point is, the UI should be that the StoryTeller can click a player, and in the modal that currently controls reminder tokens and roles, there should be an extra button, where for living players, this new button says "dies" (and when clicked, signals to all player UI's that the selected player is now dead), and for dead players, the new button says "reborn" (and when clicked, signals to all player UI's that the selected player is living by removing the death marker).     
+     F: Look at this code. Pay attention to the instructions for CLAUDE. I want a way to for the storyteller to mark players as being dead, and when a player is marked as dead, it should be reflected on the screens of all the connected players. I will let you decide whether it is better to do it by having all messages carry the lists of "living" and "dead" players (and then have the message processing code update the UI accordingly), or to have a separate message that signals a death. The point is, the UI should be that the StoryTeller can click a player, and in the modal that currently controls reminder tokens and roles, there should be an extra button, where for living players, this new button says "dies" (and when clicked, signals to all player UI's that the selected player is now dead), and for dead players, the new button says "reborn" (and when clicked, signals to all player UI's that the selected player is living by removing the death marker).
 
      F: Can you show me this as a diff, like I asked in the CLAUDE instructions at the top of the file?
 
