@@ -748,6 +748,7 @@ Sam</textarea>
     <div id="addReminderModal" class="role-assignment-modal hidden">
         <div class="role-assignment-content">
             <h3 id="addReminderTitle">Add Reminder</h3>
+            <div id="addReminderTokens"></div>
             <div class="input-group">
                 <label for="reminderText">Reminder Note:</label>
                 <textarea id="reminderText" rows="3" placeholder="Enter reminder note..." style="resize: vertical;"></textarea>
@@ -763,6 +764,7 @@ Sam</textarea>
     <div id="removeReminderModal" class="role-assignment-modal hidden">
         <div class="role-assignment-content">
             <h3 id="removeReminderTitle">Remove Reminder</h3>
+            <div id="removeReminderTokens"></div>
             <div class="input-group">
                 <label for="reminderSelect">Select Reminder to Remove:</label>
                 <select id="reminderSelect">
@@ -828,6 +830,7 @@ Sam</textarea>
         let playerDeathState = {}; // Track alive/dead status for each player
         let isNightTime = true; // Game starts at night
         let dayNightCounter = 1; // Game starts on night 1
+        let availableReminderTokens= [];
 
         // Track storyteller workflow state
         let storytellerWorkflowState = 'distribute_roles'; // 'distribute_roles', 'minion_demon_info', 'night_action'
@@ -855,6 +858,7 @@ Sam</textarea>
                 name: 'Washerwoman',
                 team: 'townsfolk',
                 ability: 'You start knowing that 1 of 2 players is a particular Townsfolk.',
+                reminderTokens: ['./icons/reminder/washerwoman_townsfolk.webp','./icons/reminder/washerwoman_wrong.webp'],
                 firstNight: true,
                 otherNights: false,
                 nightActionTemplates: [['Either {player1} or {player2} is the {townsfolk_role}.']],
@@ -864,6 +868,7 @@ Sam</textarea>
                 name: 'Librarian',
                 team: 'townsfolk',
                 ability: 'You start knowing that 1 of 2 players is a particular Outsider. (Or that zero are in play.)',
+                reminderTokens: ['./icons/reminder/librarian_outsider.webp','./icons/reminder/librarian_wrong.webp'],
                 firstNight: true,
                 otherNights: false,
                 nightActionTemplates: [['Either {player1} or {player2} is the {outsider_role}.']],
@@ -873,6 +878,7 @@ Sam</textarea>
                 name: 'Investigator',
                 team: 'townsfolk',
                 ability: 'You start knowing that 1 of 2 players is a particular Minion.',
+                reminderTokens: ['./icons/reminder/investigator_minion.webp','./icons/reminder/investigator_wrong.webp'],
                 firstNight: true,
                 otherNights: false,
                 nightActionTemplates: [['Either {player1} or {player2} is the {minion_role}.']],
@@ -900,6 +906,7 @@ Sam</textarea>
                 name: 'Fortune Teller',
                 team: 'townsfolk',
                 ability: 'Each night, choose 2 players: you learn if either is a Demon. There is a good player that registers as a Demon to you.',
+                reminderTokens: ['./icons/reminder/fortuneteller_redherring.webp'],
                 firstNight: true,
                 otherNights: true,
                 nightActionTemplates: [
@@ -913,6 +920,7 @@ Sam</textarea>
                 name: 'Undertaker',
                 team: 'townsfolk',
                 ability: 'Each night*, you learn which character died by execution today.',
+                reminderTokens: ['./icons/reminder/undertaker_diedtoday.webp'],
                 firstNight: false,
                 otherNights: true,
                 nightActionTemplates: [['Today, the {role} died by execution.']],
@@ -922,6 +930,7 @@ Sam</textarea>
                 name: 'Monk',
                 team: 'townsfolk',
                 ability: 'Each night*, choose a player (not yourself): they are safe from the Demon tonight.',
+                reminderTokens: ['./icons/reminder/monk_safe.webp'],
                 firstNight: false,
                 otherNights: true,
                 nightActionTemplates: [['Choose a player to protect tonight.', 'I choose to protect {player1}.']],
@@ -943,6 +952,7 @@ Sam</textarea>
                 name: 'Virgin',
                 team: 'townsfolk',
                 ability: 'The first time you are nominated, if the nominator is a Townsfolk, they are executed immediately.',
+                reminderTokens: ['./icons/reminder/virgin_noability.webp'],
                 firstNight: false,
                 otherNights: false,
             },
@@ -951,6 +961,7 @@ Sam</textarea>
                 name: 'Slayer',
                 team: 'townsfolk',
                 ability: 'Once per game, during the day, publicly choose a player: if they are the Demon, they die.',
+                reminderTokens: ['./icons/reminder/slayer_noability.webp'],
                 firstNight: false,
                 otherNights: false,
             },
@@ -970,41 +981,12 @@ Sam</textarea>
                 firstNight: false,
                 otherNights: false,
             },
-            noble: {
-                id: 'noble',
-                name: 'Noble',
-                team: 'townsfolk',
-                ability: 'You start knowing that 1 of 3 players is evil.',
-                firstNight: true,
-                otherNights: false,
-                nightActionTemplates: [['You learn that 1 of {player1}, {player2}, or {player3} is evil.']],
-            },
-            knight: {
-                id: 'knight',
-                name: 'Knight',
-                team: 'townsfolk',
-                ability: 'You start knowing 2 players that are not the Demon.',
-                firstNight: true,
-                otherNights: false,
-                nightActionTemplates: [['You learn that {player1} and {player2} are not the Demon.']],
-            },
-            philosopher: {
-                id: 'philosopher',
-                name: 'Philosopher',
-                team: 'townsfolk',
-                ability: 'Once per game, at night, choose a good character: you gain their ability. If this character is in play, they are drunk.',
-                firstNight: true,
-                otherNights: true,
-                nightActionTemplates: [
-                    ['Do you wish to use your once-per-game ability?', 'I choose {yesno}.'],
-                    ['Choose a good character to gain their ability.', 'I choose {good_role}.'],
-                ],
-            },
             butler: {
                 id: 'butler',
                 name: 'Butler',
                 team: 'outsider',
                 ability: 'Each night, choose a player (not yourself): tomorrow, you may only vote if they are voting too.',
+                reminderTokens: ['./icons/reminder/butler_master.webp'],
                 firstNight: true,
                 otherNights: true,
                 nightActionTemplates: [['Choose your master for tomorrow.', 'I choose {player1} as my master.']],
@@ -1014,6 +996,7 @@ Sam</textarea>
                 name: 'Drunk',
                 team: 'outsider',
                 ability: 'You do not know you are the Drunk. You think you are a Townsfolk character, but your ability malfunctions.',
+                reminderTokens: ['./icons/reminder/drunk_isthedrunk.webp'],
                 believesToBe: 'townsfolk',
                 firstNight: false,
                 otherNights: false,
@@ -1039,6 +1022,7 @@ Sam</textarea>
                 name: 'Poisoner',
                 team: 'minion',
                 ability: 'Each night, choose a player: they are poisoned tonight and tomorrow day.',
+                reminderTokens: ['./icons/reminder/poisoner_poisoned.webp'],
                 firstNight: true,
                 otherNights: true,
                 nightActionTemplates: [['Choose a player to poison.', 'I choose to poison {player1}.']],
@@ -1073,6 +1057,7 @@ Sam</textarea>
                 name: 'Imp',
                 team: 'demon',
                 ability: 'Each night*, choose a player: they die. If you kill yourself this way, a Minion becomes the Imp.',
+                reminderTokens: ['./icons/reminder/imp_dead.webp'],
                 firstNight: false,
                 otherNights: true,
                 nightActionTemplates: [
@@ -1584,6 +1569,24 @@ Sam</textarea>
                 ]
             },
             // Experimental
+            noble: {
+                id: 'noble',
+                name: 'Noble',
+                team: 'townsfolk',
+                ability: 'You start knowing that 1 of 3 players is evil.',
+                firstNight: true,
+                otherNights: false,
+                nightActionTemplates: [['You learn that 1 of {player1}, {player2}, or {player3} is evil.']],
+            },
+            knight: {
+                id: 'knight',
+                name: 'Knight',
+                team: 'townsfolk',
+                ability: 'You start knowing 2 players that are not the Demon.',
+                firstNight: true,
+                otherNights: false,
+                nightActionTemplates: [['You learn that {player1} and {player2} are not the Demon.']],
+            },
             yaggababble: {
                 id: 'yaggababble',
                 name: 'Yaggababble',
@@ -1599,7 +1602,6 @@ Sam</textarea>
 
         Object.entries(ROLES).forEach(([key, role]) => {
             if (role.team === 'demon') {
-                console.log('unshifting')
                 role.nightActionTemplates.unshift(['These three roles are not in play: {bluff_role1}, {bluff_role2}, {bluff_role3}.'])
             }
         })
@@ -1931,7 +1933,10 @@ Sam</textarea>
             playerDeathState = {};
             players.forEach(player => {
                 playerRoles[player] = null;
-                playerReminders[player] = [];
+                playerReminders[player] = {
+                    text: [],
+                    tokens: []
+                };
                 playerDeathState[player] = 'alive'; // 'alive' or 'dead'
             });
         }
@@ -2380,15 +2385,28 @@ Sam</textarea>
                     playerCard.appendChild(roleDiv);
 
                     // Show reminders if any
-                    if (playerReminders[player] && playerReminders[player].length > 0) {
+                    if (playerReminders[player].text && playerReminders[player].text.length > 0) {
                         const remindersDiv = document.createElement('div');
                         remindersDiv.className = 'player-reminders';
                         remindersDiv.style.fontSize = '0.7rem';
                         remindersDiv.style.opacity = '0.8';
                         remindersDiv.style.marginTop = '3px';
                         remindersDiv.style.fontStyle = 'italic';
-                        remindersDiv.innerHTML = playerReminders[player].map(reminder => `• ${reminder}`).join('<br>');
+                        remindersDiv.innerHTML = playerReminders[player].text.map(reminder => `• ${reminder}`).join('<br>');
                         playerCard.appendChild(remindersDiv);
+                    }
+
+                    // Show reminder tokens if any
+                    if (playerReminders[player].tokens && playerReminders[player].tokens.length > 0) {
+                        const remindersDiv = document.createElement('div');
+                        remindersDiv.className = 'player-reminders';
+                        playerReminders[player].tokens.forEach(token => {
+                            const tokenImg = document.createElement('img');
+                            tokenImg.src = token;
+                            tokenImg.style.width = '44%';
+                            tokenImg.style.margin = '0.2rem';
+                            playerCard.appendChild(tokenImg);
+                        })
                     }
 
                     playerCard.classList.add('storyteller-view');
@@ -2589,6 +2607,14 @@ Sam</textarea>
             const roleSelect = document.getElementById('roleSelect');
             const selectedRole = roleSelect.value || null;
 
+            // Update available reminder tokens
+            // Remove tokens for the previous role
+            availableReminderTokens = availableReminderTokens.filter(token => {
+                return !ROLES[playerRoles[selectedPlayerForRole]].includes(token);
+            })
+            // Add tokens for the new role
+            availableReminderTokens.concat(ROLES[selectedRole].reminderTokens);
+
             // Update local state
             playerRoles[selectedPlayerForRole] = selectedRole;
 
@@ -2666,6 +2692,17 @@ Sam</textarea>
             // Assign roles
             for (let i = 0; i < Math.min(shuffledPlayers.length, selectedRoles.length); i++) {
                 playerRoles[shuffledPlayers[i]] = selectedRoles[i].id;
+            }
+
+            // Set available reminder tokens
+            availableReminderTokens = []
+            Object.values(playerRoles).forEach(role => {
+                availableReminderTokens = availableReminderTokens.concat(ROLES[role].reminderTokens);
+            });
+
+            // Always add drunk token if the script has it
+            if (getScriptRoles(currentScript).some(role => role.id === 'drunk')) {
+                availableReminderTokens = availableReminderTokens.concat(ROLES.drunk.reminderTokens);
             }
 
             // Broadcast the new assignments
@@ -3722,7 +3759,18 @@ Sam</textarea>
                 playerRoles[shuffledPlayers[i]] = rolesToDistribute[i].id;
             }
 
-        console.log('Roles distributed:', playerRoles); // Debug line
+            // Set available reminder tokens
+            availableReminderTokens = []
+            Object.values(playerRoles).forEach(role => {
+                availableReminderTokens = availableReminderTokens.concat(ROLES[role].reminderTokens);
+            });
+
+            // Always add drunk token if the script has it
+            if (getScriptRoles(currentScript).some(role => role.id === 'drunk')) {
+                availableReminderTokens = availableReminderTokens.concat(ROLES.drunk.reminderTokens);
+            }
+
+            console.log('Roles distributed:', playerRoles); // Debug line
         }
 
         function proceedWithSelectedRoles() {
@@ -4135,15 +4183,71 @@ Sam</textarea>
 
             const modal = document.getElementById('addReminderModal');
             const title = document.getElementById('addReminderTitle');
+            const tokens = document.getElementById('addReminderTokens');
             const textArea = document.getElementById('reminderText');
 
             title.textContent = `Add Reminder for ${selectedPlayerForRole}`;
+
+            // TODO make this better
+            while (tokens.firstChild) {
+                tokens.removeChild(tokens.lastChild);
+            }
+
+            availableReminderTokens.forEach(token => {
+                if (!token) {
+                    return;
+                }
+                const imageButton = document.createElement('button');
+                imageButton.style.width = '5rem';
+                imageButton.style.background = 'none';
+                imageButton.style.padding = '0px';
+                imageButton.onclick = () => confirmAddReminderToken(token);
+
+                const image = document.createElement('img');
+                image.src = token;
+                image.style.width = '100%';
+                imageButton.appendChild(image)
+
+                tokens.appendChild(imageButton)
+            })
+
             textArea.value = '';
 
             // Hide main modal and show add reminder modal
             document.getElementById('roleAssignmentModal').classList.add('hidden');
             modal.classList.remove('hidden');
             textArea.focus();
+        }
+
+        function confirmAddReminderToken(tokenLocation) {
+            console.log('calling confirmAddReminderToken');
+            if (!selectedPlayerForRole) return;
+
+            // Initialize reminders array if it doesn't exist
+            if (!playerReminders[selectedPlayerForRole]) {
+                playerReminders[selectedPlayerForRole] = {
+                    text: [],
+                    tokens: []
+                };
+            }
+
+            // Add reminder
+            playerReminders[selectedPlayerForRole].tokens.push(tokenLocation);
+
+            // Broadcast reminder update
+            pubnub.publish({
+                channel: currentRoom,
+                message: {
+                    gameId: currentGameId,
+                    type: 'reminder_update',
+                    playerReminders: playerReminders,
+                    timestamp: Date.now()
+                }
+            });
+
+            updatePlayersList();
+            closeAddReminderModal();
+            closeRoleAssignmentModal();
         }
 
         function closeAddReminderModal() {
@@ -4164,11 +4268,14 @@ Sam</textarea>
 
             // Initialize reminders array if it doesn't exist
             if (!playerReminders[selectedPlayerForRole]) {
-                playerReminders[selectedPlayerForRole] = [];
+                playerReminders[selectedPlayerForRole] = {
+                    text: [],
+                    tokens: []
+                };
             }
 
             // Add reminder
-            playerReminders[selectedPlayerForRole].push(reminderText);
+            playerReminders[selectedPlayerForRole].text.push(reminderText);
 
             // Broadcast reminder update
             pubnub.publish({
@@ -4213,21 +4320,46 @@ Sam</textarea>
         function showRemoveReminderModal() {
             if (!selectedPlayerForRole) return;
 
-            const reminders = playerReminders[selectedPlayerForRole] || [];
-            if (reminders.length === 0) {
+            const reminders = playerReminders[selectedPlayerForRole] || {
+                text: [],
+                tokens: []
+            };
+            if (reminders.text.length === 0 && reminders.tokens.length === 0) {
                 alert('No reminders to remove for this player');
                 return;
             }
 
             const modal = document.getElementById('removeReminderModal');
             const title = document.getElementById('removeReminderTitle');
+            const tokens = document.getElementById('removeReminderTokens');
             const select = document.getElementById('reminderSelect');
+
+            // TODO make this better
+            while (tokens.firstChild) {
+                tokens.removeChild(tokens.lastChild);
+            }
 
             title.textContent = `Remove Reminder for ${selectedPlayerForRole}`;
 
+            // Populate token images
+            reminders.tokens.forEach((token, index) => {
+                const imageButton = document.createElement('button');
+                imageButton.style.width = '5rem';
+                imageButton.style.background = 'none';
+                imageButton.style.padding = '0px';
+                imageButton.onclick = () => confirmRemoveReminderToken(index);
+
+                const image = document.createElement('img');
+                image.src = token;
+                image.style.width = '100%';
+                imageButton.appendChild(image)
+
+                tokens.appendChild(imageButton)
+            })
+
             // Populate reminder dropdown
             select.innerHTML = '<option value="">Select reminder...</option>';
-            reminders.forEach((reminder, index) => {
+            reminders.text.forEach((reminder, index) => {
                 const option = document.createElement('option');
                 option.value = index;
                 option.textContent = reminder.length > 50 ? reminder.substring(0, 50) + '...' : reminder;
@@ -4256,8 +4388,32 @@ Sam</textarea>
             }
 
             // Remove reminder
-            if (playerReminders[selectedPlayerForRole]) {
-                playerReminders[selectedPlayerForRole].splice(reminderIndex, 1);
+            if (playerReminders[selectedPlayerForRole].text) {
+                playerReminders[selectedPlayerForRole].text.splice(reminderIndex, 1);
+            }
+
+            // Broadcast reminder update
+            pubnub.publish({
+                channel: currentRoom,
+                message: {
+                    gameId: currentGameId,
+                    type: 'reminder_update',
+                    playerReminders: playerReminders,
+                    timestamp: Date.now()
+                }
+            });
+
+            updatePlayersList();
+            closeRemoveReminderModal();
+            closeRoleAssignmentModal();
+        }
+
+        function confirmRemoveReminderToken(reminderIndex) {
+            if (!selectedPlayerForRole) return;
+
+            // Remove reminder
+            if (playerReminders[selectedPlayerForRole].tokens) {
+                playerReminders[selectedPlayerForRole].tokens.splice(reminderIndex, 1);
             }
 
             // Broadcast reminder update
