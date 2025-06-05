@@ -2410,15 +2410,16 @@ Sam</textarea>
                     playerCard.onclick = () => openRoleAssignmentModal(player);
                 }
 
-                // Show ghost vote emoji for dead players with ghost votes (visible to all users)
-                if (isDead && (playerGhostVotes[player] ?? true)) {
-                    const ghostVoteDiv = document.createElement('div');
-                    ghostVoteDiv.className = 'ghost-vote-indicator';
-                    ghostVoteDiv.style.fontSize = '1.2rem';
-                    ghostVoteDiv.style.textAlign = 'center';
-                    ghostVoteDiv.style.marginTop = '5px';
-                    ghostVoteDiv.textContent = '👻';
-                    playerCard.appendChild(ghostVoteDiv);
+                // Show emoji for dead players based on ghost vote status (visible to all users)
+                if (isDead) {
+                    const hasGhostVote = playerGhostVotes[player] ?? true;
+                    const deathStatusDiv = document.createElement('div');
+                    deathStatusDiv.className = hasGhostVote ? 'ghost-vote-indicator' : 'tombstone-indicator';
+                    deathStatusDiv.style.fontSize = '1.2rem';
+                    deathStatusDiv.style.textAlign = 'center';
+                    deathStatusDiv.style.marginTop = '5px';
+                    deathStatusDiv.textContent = hasGhostVote ? '👻' : '🪦';
+                    playerCard.appendChild(deathStatusDiv);
                 }
 
                 if (player === currentUser) {
