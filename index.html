@@ -1931,10 +1931,12 @@ Sam</textarea>
             playerRoles = {};
             playerReminders = {};
             playerDeathState = {};
+            playerGhostVotes = {};
             players.forEach(player => {
                 playerRoles[player] = null;
                 playerReminders[player] = [];
                 playerDeathState[player] = 'alive'; // 'alive' or 'dead'
+                playerGhostVotes[player] = true; // Default to having ghost vote
             });
         }
 
@@ -2086,6 +2088,7 @@ Sam</textarea>
                 playerRoles: playerRoles,
                 playerReminders: playerReminders,
                 playerDeathState: playerDeathState,
+                playerGhostVotes: playerGhostVotes,
                 storyteller: currentUser,
                 timestamp: Date.now()
             };
@@ -2178,6 +2181,10 @@ Sam</textarea>
 
                     if (message.playerDeathState) {
                         playerDeathState = message.playerDeathState;
+                    }
+
+                    if (message.playerGhostVotes) {
+                        playerGhostVotes = message.playerGhostVotes;
                     }
 
                     // Look up the full script object from the script name/id
@@ -2404,7 +2411,7 @@ Sam</textarea>
                 }
 
                 // Show ghost vote emoji for dead players with ghost votes (visible to all users)
-                if (isDead && playerGhostVotes[player]) {
+                if (isDead && (playerGhostVotes[player] ?? true)) {
                     const ghostVoteDiv = document.createElement('div');
                     ghostVoteDiv.className = 'ghost-vote-indicator';
                     ghostVoteDiv.style.fontSize = '1.2rem';
@@ -2596,7 +2603,7 @@ Sam</textarea>
 
             // Update ghost vote toggle button text based on current state
             const ghostVoteToggleBtn = document.getElementById('ghostVoteToggleBtn');
-            const hasGhostVote = playerGhostVotes[playerName] || false;
+            const hasGhostVote = playerGhostVotes[playerName] ?? true;
             ghostVoteToggleBtn.textContent = hasGhostVote ? '👻 Remove Ghost Vote' : '👻 Add Ghost Vote';
             ghostVoteToggleBtn.style.background = hasGhostVote ?
                 'linear-gradient(45deg, #ff6b6b, #ee5a24)' :
@@ -4240,7 +4247,7 @@ Sam</textarea>
         function togglePlayerGhostVote() {
             if (!selectedPlayerForRole) return;
 
-            const currentState = playerGhostVotes[selectedPlayerForRole] || false;
+            const currentState = playerGhostVotes[selectedPlayerForRole] ?? true;
             const newState = !currentState;
 
             // Update local state
