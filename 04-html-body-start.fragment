@@ -1,0 +1,337 @@
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1 class="title">🩸 Scratch on the Smartphone</h1>
+        </div>
+
+        <!-- Setup Screen -->
+        <div id="setupScreen" class="card">
+            <div class="input-group">
+                <label for="userType">I am the:</label>
+                <select id="userType">
+                    <option value="player">Player</option>
+                    <option value="storyteller">Storyteller</option>
+                </select>
+            </div>
+
+            <div id="storytellerSetup" class="hidden">
+                <div class="input-group">
+                    <label>Game Mode:</label>
+                    <div style="display: flex; gap: 10px; margin-bottom: 15px;">
+                        <button type="button" id="newGameBtn" onclick="selectGameMode('new')" style="flex: 1;">🎲 New Game</button>
+                        <button type="button" id="reconnectBtn" onclick="selectGameMode('reconnect')" style="flex: 1; background: #666;">🔄 Reconnect</button>
+                    </div>
+                </div>
+
+                 <div class="input-group">
+                    <label for="gameRoom">Game Room ID:</label>
+                    <input type="text" id="gameRoom" placeholder="Enter or create room ID"
+               value="botc_hbneha"
+               >
+                    <button type="button" id="generateRoomBtn" onclick="generateRoomId()">Generate New Room</button>
+                </div>
+
+                <div id="newGameFields" class="input-group">
+                    <label for="scriptSelect">Script:</label>
+                    <select id="scriptSelect">
+                        <option value="">Select a script...</option>
+                    </select>
+                </div>
+
+                <div id="playerNamesField" class="input-group">
+                    <label for="playerNames">Player Names (one per line):</label>
+<!-- don't include Felix, that's the Storyteller -->
+                    <textarea id="playerNames" rows="8" placeholder="Alice&#10;Bob&#10;Charlie&#10;Diana&#10;Eve">Pratik
+Neha
+Kunjal
+Amanda
+Rob
+Courtney
+Taylor
+Steph</textarea>
+                </div>
+            </div>
+
+            <div id="playerSetup" class="hidden">
+                <div class="input-group">
+                    <label for="gameRoomPlayer">Game Room ID:</label>
+                    <input type="text" id="gameRoomPlayer" placeholder="Enter room ID from Storyteller"
+               value="botc_hbneha"
+               >
+                    <button type="button" onclick="checkRoom()">Check Room</button>
+                </div>
+
+                <div id="playerNameSection" class="input-group hidden">
+                    <label for="playerName">Your Name:</label>
+                    <select id="playerName">
+                        <option value="">Select your name...</option>
+                    </select>
+                </div>
+
+                <div id="roomStatus" class="hidden"></div>
+            </div>
+
+            <button id="joinGameBtn" onclick="joinGame()">Start Game</button>
+        </div>
+
+        <!-- Role Selection Screen -->
+        <div id="roleSelectionScreen" class="card hidden">
+            <h2>Select Roles for Game</h2>
+            <div class="input-group">
+                <label>Script: <span id="roleSelectionScript"></span> | Players: <span id="roleSelectionPlayerCount"></span> | GameId: <span id="roleSelectionGameId"></span></label>
+            </div>
+
+            <div id="distributionInfo" class="card" style="background: rgba(74, 144, 226, 0.2); margin-bottom: 20px;">
+                <h4>Recommended Distribution</h4>
+                <div id="distributionDisplay"></div>
+            </div>
+
+            <div style="display: flex; gap: 10px; margin-bottom: 20px;">
+                <button onclick="randomlySelectRoles()" style="flex: 1; background: linear-gradient(45deg, #26de81, #20bf6b);">
+                    🎲 Random Selection
+                </button>
+                <button onclick="clearAllRoles()" style="flex: 1; background: #666;">
+                    Clear All
+                </button>
+            </div>
+
+            <div id="currentSelectionStatus" class="status" style="margin-bottom: 20px;"></div>
+
+            <div id="roleSelectionContent">
+                <div class="team-section">
+                    <div class="team-header team-townsfolk">
+                        👥 Townsfolk (<span id="townsfolkCount">0</span>/<span id="townsfolkTarget">0</span>)
+                    </div>
+                    <div id="townsfolkRoles" class="role-selection-grid"></div>
+                </div>
+
+                <div class="team-section">
+                    <div class="team-header team-outsider">
+                        🚪 Outsiders (<span id="outsiderCount">0</span>/<span id="outsiderTarget">0</span>)
+                    </div>
+                    <div id="outsiderRoles" class="role-selection-grid"></div>
+                </div>
+
+                <div class="team-section">
+                    <div class="team-header team-minion">
+                        😈 Minions (<span id="minionCount">0</span>/<span id="minionTarget">0</span>)
+                    </div>
+                    <div id="minionRoles" class="role-selection-grid"></div>
+                </div>
+
+                <div class="team-section">
+                    <div class="team-header team-demon">
+                        👹 Demons (<span id="demonCount">0</span>/<span id="demonTarget">0</span>)
+                    </div>
+                    <div id="demonRoles" class="role-selection-grid"></div>
+                </div>
+            </div>
+
+            <div style="display: flex; gap: 10px; margin-top: 20px;">
+                <button onclick="goBackToSetup()" style="flex: 1; background: #666;">
+                    ← Back to Setup
+                </button>
+                <button onclick="proceedWithSelectedRoles()" style="flex: 1;" id="proceedButton">
+                    Continue to Game →
+                </button>
+            </div>
+        </div>
+
+        <!-- Game Screen -->
+        <div id="gameScreen" class="card hidden">
+            <div class="input-group">
+                <label>Script: <span id="displayScript"></span> | GameId: <span id="displayGameId" onclick="editGameId()" style="cursor: pointer; text-decoration: underline; color: #26de81;"></span> | <span id="displayTime"></span></label>
+            </div>
+
+            <button id="scriptViewerToggle" onclick="toggleScriptViewer()">📜 View Script</button>
+            <span id="gameStateDisplay" style="margin-left: 15px; font-size: 0.9rem; opacity: 0.8;"></span>
+
+            <div class="players-list" id="playersList"></div>
+
+            <!-- Script Viewer -->
+            <div id="scriptViewer" class="card hidden" style="margin-bottom: 20px;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                    <h3 id="scriptViewerTitle">Script Viewer</h3>
+                    <button onclick="toggleScriptViewer()" style="background: #666; padding: 5px 10px; font-size: 12px;">✕ Close</button>
+                </div>
+
+                <div id="scriptContent">
+                    <p>No script loaded</p>
+                </div>
+            </div>
+
+            <!-- Storyteller Controls -->
+            <div id="storytellerControls" class="storyteller-controls hidden">
+                <h3>Storyteller Controls</h3>
+                <div class="input-group">
+                    <label for="targetPlayer">Send to:</label>
+                    <select id="targetPlayer">
+                        <option value="">Select player...</option>
+                    </select>
+                </div>
+
+                <div class="template-buttons">
+                    <div id="distributeRolesPhase" class="template-buttons" style="display: none;">
+                        <button class="template-btn" onclick="distributeAllRoles()">Distribute Roles</button>
+                    </div>
+
+                    <div id="minionDemonPhase" class="template-buttons" style="display: none;">
+                        <button class="template-btn" onclick="distributeMinionAndDemonInfo()">Distribute Minion/Demon Info</button>
+                        <button class="template-btn" onclick="skipMinionDemonInfo()" style="background: #666;">Skip Minion/Demon Info</button>
+                    </div>
+
+                    <div id="nightActionPhase" class="template-buttons" style="display: none;">
+                        <button class="template-btn" onclick="useNightActionTemplate()">Night Action</button>
+                    </div>
+                </div>
+
+                <div style="margin-top: 15px;">
+                    <button id="phaseToggle" onclick="togglePhase()" style="width: 100%; background: linear-gradient(45deg, #4a90e2, #357abd);">Day Breaks</button>
+                </div>
+            </div>
+
+            <div class="messaging-area">
+                <div class="messages" id="messages"></div>
+
+                <div id="templateUI" class="template-ui hidden">
+                    <h4 id="templateTitle">Template</h4>
+                    <div id="templateFields"></div>
+                    <div id="responsePreview" class="response-preview hidden"></div>
+                    <button onclick="sendTemplateMessage()">Send Message</button>
+                    <button onclick="cancelTemplate()">Cancel</button>
+                </div>
+
+                <div class="compose-area">
+                    <textarea id="messageInput" placeholder="Type your message..."></textarea>
+                    <button onclick="sendFreeMessage()">Send</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Role Assignment Modal -->
+    <div id="roleAssignmentModal" class="role-assignment-modal hidden">
+        <div class="role-assignment-content">
+            <h3 id="roleAssignmentTitle">Assign Role</h3>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 15px;">
+                <button onclick="showAddReminderModal()" style="background: linear-gradient(45deg, #ffd93d, #f39c12);">📝 Add Reminder</button>
+                <button onclick="showRemoveReminderModal()" style="background: linear-gradient(45deg, #ff6b6b, #ee5a24);">🗑️ Remove Reminder</button>
+                <button onclick="showChangeRoleModal()" style="background: linear-gradient(45deg, #26de81, #20bf6b);">🎭 Change Role</button>
+                <button onclick="showChangeSeatModal()" style="background: linear-gradient(45deg, #5e2c03, #733604);">🪑 Change Seat</button>
+                <button id="deathToggleBtn" onclick="togglePlayerDeath()" style="background: linear-gradient(45deg, #9b59b6, #8e44ad);">💀 Dies</button>
+                <button id="ghostVoteToggleBtn" onclick="togglePlayerGhostVote()" style="background: linear-gradient(45deg, #4834d4, #686de0);">👻 Ghost Vote</button>
+        </div>
+            <div style="margin-top: 10px;">
+                <button onclick="closeRoleAssignmentModal()" style="width: 100%; background: #666;">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Change Role Modal -->
+    <div id="changeRoleModal" class="role-assignment-modal hidden">
+        <div class="role-assignment-content">
+            <h3 id="changeRoleTitle">Change Role</h3>
+            <div class="input-group">
+                <label for="roleSelect">Role:</label>
+                <select id="roleSelect">
+                    <option value="">No role assigned</option>
+                </select>
+            </div>
+            <div style="display: flex; gap: 10px; margin-top: 15px;">
+                <button onclick="confirmRoleChange()" style="flex: 1;">Change Role</button>
+                <button onclick="closeChangeRoleModal()" style="flex: 1; background: #666;">Cancel</button>
+            </div>
+            <div style="margin-top: 10px;">
+                <button onclick="randomlyAssignAllRoles()" style="width: 100%; background: linear-gradient(45deg, #26de81, #20bf6b);">
+                    🎲 Randomly Assign All Roles
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Change Seat Modal -->
+    <div id="changeSeatModal" class="role-assignment-modal hidden">
+        <div class="seat-assignment-content">
+            <h3 id="changeSeatTitle">Change Seat</h3>
+            <div class="input-group">
+                <label for="seatSelect">Seat:</label>
+                <select id="seatSelect">
+                    <option value="">No seat assigned</option>
+                </select>
+            </div>
+            <div style="display: flex; gap: 10px; margin-top: 15px;">
+                <button onclick="confirmSeatChange()" style="flex: 1;">Change Seat</button>
+                <button onclick="closeChangeSeatModal()" style="flex: 1; background: #666;">Cancel</button>
+            </div>
+            <div style="margin-top: 10px;">
+                <button onclick="randomlyAssignAllSeats()" style="width: 100%; background: linear-gradient(45deg, #26de81, #20bf6b);">
+                    🎲 Randomly Assign All Seats
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Add Reminder Modal -->
+    <div id="addReminderModal" class="role-assignment-modal hidden">
+        <div class="role-assignment-content">
+            <h3 id="addReminderTitle">Add Reminder</h3>
+            <div class="input-group">
+                <label for="reminderText">Reminder Note:</label>
+                <textarea id="reminderText" rows="3" placeholder="Enter reminder note..." style="resize: vertical;"></textarea>
+            </div>
+            <div style="display: flex; gap: 10px; margin-top: 15px;">
+                <button onclick="confirmAddReminder()" style="flex: 1;">Add Reminder</button>
+                <button onclick="closeAddReminderModal()" style="flex: 1; background: #666;">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Remove Reminder Modal -->
+    <div id="removeReminderModal" class="role-assignment-modal hidden">
+        <div class="role-assignment-content">
+            <h3 id="removeReminderTitle">Remove Reminder</h3>
+            <div class="input-group">
+                <label for="reminderSelect">Select Reminder to Remove:</label>
+                <select id="reminderSelect">
+                    <option value="">Select reminder...</option>
+                </select>
+            </div>
+            <div style="display: flex; gap: 10px; margin-top: 15px;">
+                <button onclick="confirmRemoveReminder()" style="flex: 1;">Remove Reminder</button>
+                <button onclick="closeRemoveReminderModal()" style="flex: 1; background: #666;">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+
+    <!-- Template Selection Modal -->
+    <div id="templateSelectionModal" class="role-assignment-modal hidden">
+        <div class="role-assignment-content">
+            <h3 id="templateSelectionTitle">Choose Template</h3>
+            <div id="templateSelectionContent" style="max-height: 400px; overflow-y: auto;">
+                <!-- Template buttons will be inserted here -->
+            </div>
+            <div style="margin-top: 15px;">
+                <button onclick="closeTemplateSelectionModal()" style="width: 100%; background: #666;">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+
+
+    <!-- GameId Edit Modal -->
+    <div id="gameIdEditModal" class="role-assignment-modal hidden">
+        <div class="role-assignment-content">
+            <h3>Change Game ID</h3>
+            <div class="input-group">
+                <label for="newGameId">Game ID:</label>
+                <input type="text" id="newGameId" placeholder="Enter new game ID...">
+            </div>
+            <div style="display: flex; gap: 10px; margin-top: 15px;">
+                <button onclick="confirmGameIdChange()" style="flex: 1;">Change Game ID</button>
+                <button onclick="closeGameIdEditModal()" style="flex: 1; background: #666;">Cancel</button>
+            </div>
+        </div>
+    </div>
+
