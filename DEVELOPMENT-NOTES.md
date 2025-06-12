@@ -1,4 +1,3 @@
-<!--
 ## NOTES FOR CLAUDE
 
 * If you have concrete suggestions for changes, present them as diffs. Do not attempt to present the whole file rewritten, as that wastes tokens.
@@ -19,4 +18,3 @@
      [X] More specifically on the above: there's some issue where If I try to adjust the number of players for a *new game* in a pre-existing room, the overall system seems to grab (maybe old?) messages and allows them to override my more recent choices. There might be a need for some kind of game identification or timestamping to deal with this.
 
 
--->

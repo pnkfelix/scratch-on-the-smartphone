@@ -1,7 +1,3 @@
-</body>
-</html>
-
-<!--
      PROMPT SEQUENCE TO CLAUDE
 
      Project Summary: Local Smartphone Messaging App
