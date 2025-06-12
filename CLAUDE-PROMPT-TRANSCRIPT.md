@@ -381,4 +381,20 @@ Remove reminder brings up a model with a combo box with all the current reminder
 
      F: do we need to update the transcript as well?
 
+     F: that's funny, why did you repeat one of my prompts? Did I actually repeat it to you?
+
+     F: lets commit this and push it
+
+     F: and open a PR
+
+     F: nah I merged that before these changes landed. I think you need to open a fresh PR against this branch.
+
+     F: the TODO list in DEVELOPMENT-NOTES.md has gone pretty out-of-date (it predates the github issues I think). Do you know which ones have been addressed explicitly? Have any become irrelevant?
+
+     F: lets do 1. and 3. first. We can double-check against the github issue list after we finish that first.
+
+     F: okay make a branch, add the change, commit the work, push the branch, make a PR.
+
+     F: update the transcript please.
+
 -->
