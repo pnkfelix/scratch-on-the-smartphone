@@ -1213,6 +1213,11 @@ Steph</textarea>
                 firstNight: true,
                 otherNights: true,
                 nightActionTemplates: [
+                    // Fake minion info templates (sent first to match timing of real demon's automatic minion info)
+                    ['Your minion is {player1}.'],
+                    ['Your minions are {player1}, {player2}.'],
+                    ['Your minions are {player1}, {player2}, {player3}.'],
+                    // Bluffs template (sent last to match timing of real demon's night action phase)
                     ['These three roles are not in play: {good_role1}, {good_role2}, {good_role3}.'],
                 ]
             },
