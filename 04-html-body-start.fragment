@@ -1,11 +1,3 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Scratch on the Smartphone</title>
-    <script src="https://cdn.pubnub.com/sdk/javascript/pubnub.8.2.0.min.js"></script>
-    <link rel="stylesheet" href="styles.css">
 </head>
 <body>
     <div class="container">
@@ -342,9 +334,4 @@ Steph</textarea>
             </div>
         </div>
     </div>
-
-    <script src="app.js"></script>
-
-</body>
-</html>
 
