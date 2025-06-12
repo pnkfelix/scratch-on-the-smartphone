@@ -369,4 +369,16 @@ Remove reminder brings up a model with a combo box with all the current reminder
 
      F: acutally, I just realized something: there were other prompts that we failed to capture, because  I had ended my claude code session and started a new one. Can you figure out, from the commit history, what the likely prompts were for those, and insert them in the right place?
 
+     F: you can elide the prompts that were just me confirming your presented plan of action.
+
+     F: for these edits, don't include the prefix " Look at this code. Pay attention to the instructions for CLAUDE at the top. "; instead, make a note that at this point in the development, the conversation shifted from being one with Claude.ai to a conversation instead with Claude Code.
+
+     F: sure commit it there. and push. and open a PR.
+
+     F: I want you to try to remember, in future Claude Code invocations, that I like to keep track of the non-trivial prompts I give to you in this CLAUDE-PROMPT-TRANSCRIPT.md file. Where can you store that, such that you will remember to look at it and let it inform your future actions?
+
+     F: okay so we should commit this too then?
+
+     F: do we need to update the transcript as well?
+
 -->
