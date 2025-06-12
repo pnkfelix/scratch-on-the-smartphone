@@ -2,6 +2,7 @@
 
 * If you have concrete suggestions for changes, present them as diffs. Do not attempt to present the whole file rewritten, as that wastes tokens.
 * If you make an array expression whose elements are written one-per-line, then prefer to include a trailing comma after the last element.
+* **IMPORTANT**: Maintain the conversation transcript in `CLAUDE-PROMPT-TRANSCRIPT.md` by adding non-trivial prompts from each Claude Code session. This provides valuable development history and context for future work.
 
 ## TODO LIST
 
