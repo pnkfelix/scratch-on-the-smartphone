@@ -1,4 +1,3 @@
-    <script>
         // PubNub Configuration - Replace with your keys
         const PUBNUB_PUBLISH_KEY = 'demo';
         const PUBNUB_SUBSCRIBE_KEY = 'demo';
@@ -3563,4 +3562,3 @@
             closeGameIdEditModal();
         }
 
-    </script>
