@@ -397,4 +397,8 @@ Remove reminder brings up a model with a combo box with all the current reminder
 
      F: update the transcript please.
 
+     (At this point, the conversation shifted from Claude.ai to Claude Code and GitHub Actions)
+
+     F: can you address this? (Issue #33)
+
 -->
