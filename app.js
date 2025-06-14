@@ -937,6 +937,8 @@
                 playerNamesField.style.display = 'none';
                 joinBtn.textContent = 'Rejoin Game';
             }
+            
+            updateURL();
         }
 
         // Initialize user type selection and populate scripts
@@ -950,6 +952,14 @@
             } else {
                 storytellerSetup.classList.add('hidden');
                 playerSetup.classList.remove('hidden');
+            }
+        });
+
+        // Update URL when player selects their name
+        document.getElementById('playerName').addEventListener('change', function() {
+            if (this.value) {
+                currentUser = this.value;
+                updateURL();
             }
         });
 
@@ -1501,6 +1511,9 @@
             }
 
             updatePlayersList();
+            
+            // Update URL with current game state
+            updateURL();
         }
 
         function updateStorytellerWorkflowUI() {
@@ -3479,6 +3492,9 @@
             currentGameId = newGameId;
             document.getElementById('displayGameId').textContent = currentGameId;
 
+            // Update URL with new game ID
+            updateURL();
+
             // If we're a storyteller, broadcast the new game state
             if (userType === 'storyteller') {
                 sendGameSetup();
@@ -3486,4 +3502,153 @@
 
             closeGameIdEditModal();
         }
+
+        // URL Parameter Handling Functions
+        function getURLParams() {
+            const params = new URLSearchParams(window.location.search);
+            return {
+                gameId: params.get('gameId'),
+                player: params.get('player'),
+                room: params.get('room'),
+                userType: params.get('userType')
+            };
+        }
+
+        function updateURL() {
+            if (!currentGameId && !currentUser) {
+                // No state to preserve, don't update URL
+                return;
+            }
+
+            const params = new URLSearchParams();
+            
+            if (currentGameId) {
+                params.set('gameId', currentGameId);
+            }
+            if (currentUser && currentUser !== 'Storyteller') {
+                params.set('player', currentUser);
+            }
+            if (currentRoom) {
+                params.set('room', currentRoom);
+            }
+            if (userType) {
+                params.set('userType', userType);
+            }
+
+            const newURL = window.location.pathname + (params.toString() ? '?' + params.toString() : '');
+            window.history.replaceState(null, '', newURL);
+        }
+
+        function restoreFromURL() {
+            const urlParams = getURLParams();
+            
+            if (!urlParams.gameId && !urlParams.player && !urlParams.room) {
+                // No URL parameters, start fresh
+                return false;
+            }
+
+            console.log('Restoring from URL parameters:', urlParams);
+
+            // Restore basic state
+            if (urlParams.gameId) {
+                currentGameId = urlParams.gameId;
+            }
+            if (urlParams.room) {
+                currentRoom = urlParams.room;
+            }
+            if (urlParams.userType) {
+                userType = urlParams.userType;
+                document.getElementById('userType').value = userType;
+                
+                // Trigger the change event to show appropriate UI
+                const userTypeSelect = document.getElementById('userType');
+                userTypeSelect.dispatchEvent(new Event('change'));
+            }
+
+            // Restore user-specific state
+            if (urlParams.player && urlParams.userType === 'player') {
+                currentUser = urlParams.player;
+                
+                // Auto-populate the room field for players
+                if (currentRoom) {
+                    document.getElementById('gameRoomPlayer').value = currentRoom;
+                }
+            } else if (urlParams.userType === 'storyteller') {
+                currentUser = 'Storyteller';
+                
+                // Auto-populate the room field for storytellers
+                if (currentRoom) {
+                    document.getElementById('gameRoom').value = currentRoom;
+                }
+                
+                // Set to reconnect mode since we're restoring state
+                selectGameMode('reconnect');
+            }
+
+            // If we have enough information, try to rejoin the game
+            if (currentRoom && currentUser && userType) {
+                console.log('Auto-joining game from URL parameters');
+                
+                // Initialize PubNub connection
+                initializePubNub();
+                
+                // Switch to game screen
+                switchToGameScreen();
+                
+                // If we're a player, request game state
+                if (userType === 'player') {
+                    // Request current game state from storyteller
+                    setTimeout(() => {
+                        pubnub.publish({
+                            channel: currentRoom,
+                            message: {
+                                type: 'request_game_state',
+                                from: currentUser,
+                                timestamp: Date.now()
+                            }
+                        });
+                    }, 1000); // Wait a moment for connection to establish
+                }
+                
+                return true;
+            }
+            
+            return false;
+        }
+
+        // Modified joinGame function to update URL
+        const originalJoinGame = joinGame;
+        joinGame = function() {
+            const result = originalJoinGame.apply(this, arguments);
+            
+            // Update URL after joining
+            setTimeout(() => {
+                updateURL();
+            }, 100);
+            
+            return result;
+        };
+
+        // Page initialization
+        function initializePage() {
+            // Fix the bug: populate script dropdown
+            populateScriptDropdown();
+            
+            // Try to restore state from URL
+            const restored = restoreFromURL();
+            
+            if (!restored) {
+                console.log('Starting fresh - no URL parameters to restore');
+            }
+        }
+
+        // Initialize when page loads
+        document.addEventListener('DOMContentLoaded', initializePage);
+        
+        // Handle browser back/forward buttons
+        window.addEventListener('popstate', function(event) {
+            // Refresh the page when user navigates back/forward
+            // This ensures we restore the correct state
+            window.location.reload();
+        });
 
