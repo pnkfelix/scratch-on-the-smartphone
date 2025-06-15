@@ -47,7 +47,7 @@
       "ability": "You start knowing how many pairs of evil players there are.",
       "firstNight": true,
       "otherNights": false,
-      "nightActionTemplates": [["There are {count} pairs of evil players."]]
+      "nightActionTemplates": [["You learn that there are {number} pairs of evil players."]]
     },
     "empath": {
       "id": "empath",
@@ -56,7 +56,7 @@
       "ability": "Each night, you learn how many of your 2 alive neighbors are evil.",
       "firstNight": true,
       "otherNights": true,
-      "nightActionTemplates": [["Of {neighbor1} and {neighbor2}, {count} are evil."]]
+      "nightActionTemplates": [["{number} of your living neighbors are evil."]]
     },
     "fortune_teller": {
       "id": "fortune_teller",
@@ -66,8 +66,9 @@
       "firstNight": true,
       "otherNights": true,
       "nightActionTemplates": [
-        ["Choose 2 players to learn if either is a Demon."],
-        ["Yes, one of {player1} and {player2} is a Demon.", "No, neither {player1} nor {player2} is a Demon."]
+        ["Choose two players tonight.", "I choose {player1} and {player2}."],
+        ["Yes, one of them is the Demon."],
+        ["No, neither of them is the Demon."]
       ]
     },
     "undertaker": {
@@ -77,7 +78,7 @@
       "ability": "Each night*, you learn which character died by execution today.",
       "firstNight": false,
       "otherNights": true,
-      "nightActionTemplates": [["The executed player was the {executed_role}."]]
+      "nightActionTemplates": [["Today, the {role} died by execution."]]
     },
     "monk": {
       "id": "monk",
@@ -86,10 +87,7 @@
       "ability": "Each night*, choose a player (not yourself): they are safe from the Demon tonight.",
       "firstNight": false,
       "otherNights": true,
-      "nightActionTemplates": [
-        ["Choose a player to protect from the Demon tonight."],
-        ["{player} is protected from the Demon tonight."]
-      ]
+      "nightActionTemplates": [["Choose a player to protect tonight.", "I choose to protect {player1}."]]
     },
     "ravenkeeper": {
       "id": "ravenkeeper",
@@ -99,18 +97,17 @@
       "firstNight": false,
       "otherNights": true,
       "nightActionTemplates": [
-        ["Choose a player to learn their character."],
-        ["{player} is the {player_role}."]
+        ["Choose a player to learn their character.", "I choose {player1}."],
+        ["You learn that {player1} is the {role}."]
       ]
     },
     "virgin": {
       "id": "virgin",
       "name": "Virgin",
       "team": "townsfolk",
-      "ability": "The 1st time you are nominated, if the nominator is a Townsfolk, they are executed immediately.",
+      "ability": "The first time you are nominated, if the nominator is a Townsfolk, they are executed immediately.",
       "firstNight": false,
-      "otherNights": false,
-      "nightActionTemplates": [[]]
+      "otherNights": false
     },
     "slayer": {
       "id": "slayer",
@@ -118,8 +115,7 @@
       "team": "townsfolk",
       "ability": "Once per game, during the day, publicly choose a player: if they are the Demon, they die.",
       "firstNight": false,
-      "otherNights": false,
-      "nightActionTemplates": [[]]
+      "otherNights": false
     },
     "soldier": {
       "id": "soldier",
@@ -127,8 +123,7 @@
       "team": "townsfolk",
       "ability": "You are safe from the Demon.",
       "firstNight": false,
-      "otherNights": false,
-      "nightActionTemplates": [[]]
+      "otherNights": false
     },
     "mayor": {
       "id": "mayor",
@@ -136,8 +131,37 @@
       "team": "townsfolk",
       "ability": "If only 3 players live & no execution occurs, your team wins. If you die at night, another player might die instead.",
       "firstNight": false,
+      "otherNights": false
+    },
+    "noble": {
+      "id": "noble",
+      "name": "Noble",
+      "team": "townsfolk",
+      "ability": "You start knowing that 1 of 3 players is evil.",
+      "firstNight": true,
       "otherNights": false,
-      "nightActionTemplates": [[]]
+      "nightActionTemplates": [["You learn that 1 of {player1}, {player2}, or {player3} is evil."]]
+    },
+    "knight": {
+      "id": "knight",
+      "name": "Knight",
+      "team": "townsfolk",
+      "ability": "You start knowing 2 players that are not the Demon.",
+      "firstNight": true,
+      "otherNights": false,
+      "nightActionTemplates": [["You learn that {player1} and {player2} are not the Demon."]]
+    },
+    "philosopher": {
+      "id": "philosopher",
+      "name": "Philosopher",
+      "team": "townsfolk",
+      "ability": "Once per game, at night, choose a good character: you gain their ability. If this character is in play, they are drunk.",
+      "firstNight": true,
+      "otherNights": true,
+      "nightActionTemplates": [
+        ["Do you wish to use your once-per-game ability?", "I choose {yesno}."],
+        ["Choose a good character to gain their ability.", "I choose {good_role}."]
+      ]
     },
     "butler": {
       "id": "butler",
@@ -146,29 +170,24 @@
       "ability": "Each night, choose a player (not yourself): tomorrow, you may only vote if they are voting too.",
       "firstNight": true,
       "otherNights": true,
-      "nightActionTemplates": [
-        ["Choose your master for tomorrow."],
-        ["Your master is {player}. You may only vote if they vote."]
-      ]
+      "nightActionTemplates": [["Choose your master for tomorrow.", "I choose {player1} as my master."]]
     },
     "drunk": {
       "id": "drunk",
       "name": "Drunk",
       "team": "outsider",
       "ability": "You do not know you are the Drunk. You think you are a Townsfolk character, but your ability malfunctions.",
+      "believesToBe": "townsfolk",
       "firstNight": false,
-      "otherNights": false,
-      "nightActionTemplates": [[]],
-      "believesToBe": "townsfolk"
+      "otherNights": false
     },
     "recluse": {
       "id": "recluse",
       "name": "Recluse",
       "team": "outsider",
-      "ability": "You might register as evil & as a Minion or Demon, even if dead.",
+      "ability": "You might register as evil & as a Minion or Demon, even when dead.",
       "firstNight": false,
-      "otherNights": false,
-      "nightActionTemplates": [[]]
+      "otherNights": false
     },
     "saint": {
       "id": "saint",
@@ -176,8 +195,7 @@
       "team": "outsider",
       "ability": "If you die by execution, your team loses.",
       "firstNight": false,
-      "otherNights": false,
-      "nightActionTemplates": [[]]
+      "otherNights": false
     },
     "poisoner": {
       "id": "poisoner",
@@ -186,28 +204,24 @@
       "ability": "Each night, choose a player: they are poisoned tonight and tomorrow day.",
       "firstNight": true,
       "otherNights": true,
-      "nightActionTemplates": [
-        ["Choose a player to poison."],
-        ["{player} is poisoned until dusk tomorrow."]
-      ]
+      "nightActionTemplates": [["Choose a player to poison.", "I choose to poison {player1}."]]
     },
     "spy": {
       "id": "spy",
       "name": "Spy",
       "team": "minion",
-      "ability": "Each night, you see the Grimoire. You might register as good & as a Townsfolk or Outsider, even if dead.",
+      "ability": "Each night, you see the Grimoire. You might register as good & as a Townsfolk or Outsider.",
       "firstNight": true,
-      "otherNights": true,
-      "nightActionTemplates": [["You see the Grimoire."]]
+      "otherNights": true
     },
     "scarlet_woman": {
       "id": "scarlet_woman",
       "name": "Scarlet Woman",
       "team": "minion",
-      "ability": "If there are 5 or more players alive & the Demon dies, you become the Demon. (Travellers don't count)",
+      "ability": "If there are 5 or more players alive & the Demon dies, you become the Demon.",
       "firstNight": false,
       "otherNights": true,
-      "nightActionTemplates": [["If the Demon died and 5+ players are alive, you become the Demon."]]
+      "nightActionTemplates": [["You are the {demon_role}."]]
     },
     "baron": {
       "id": "baron",
@@ -215,8 +229,7 @@
       "team": "minion",
       "ability": "There are extra Outsiders in play. [+2 Outsiders]",
       "firstNight": false,
-      "otherNights": false,
-      "nightActionTemplates": [[]]
+      "otherNights": false
     },
     "imp": {
       "id": "imp",
@@ -226,8 +239,7 @@
       "firstNight": false,
       "otherNights": true,
       "nightActionTemplates": [
-        ["Choose a player to kill."],
-        ["{player} dies."]
+        ["Choose a player to kill tonight. Choose yourself to make one of your minions the new Imp.", "I choose to kill {player1}."]
       ]
     },
     "grandmother": {
@@ -237,19 +249,16 @@
       "ability": "You start knowing a good player & their character. If the Demon kills them, you die too.",
       "firstNight": true,
       "otherNights": false,
-      "nightActionTemplates": [["Your grandchild is {player}, who is the {player_role}."]]
+      "nightActionTemplates": [["You learn {player} is the {role}."]]
     },
     "sailor": {
       "id": "sailor",
       "name": "Sailor",
       "team": "townsfolk",
-      "ability": "Each night, choose a player: either you or they are drunk until dusk. You cannot die.",
+      "ability": "Each night, choose a player: they are drunk until dusk. You cannot die.",
       "firstNight": true,
       "otherNights": true,
-      "nightActionTemplates": [
-        ["Choose a player: either you or they are drunk until dusk."],
-        ["Either you or {player} is drunk until dusk."]
-      ]
+      "nightActionTemplates": [["Choose a player.", "I choose {player}."]]
     },
     "chambermaid": {
       "id": "chambermaid",
@@ -258,10 +267,7 @@
       "ability": "Each night, choose 2 alive players (not yourself): you learn how many woke tonight due to their ability.",
       "firstNight": true,
       "otherNights": true,
-      "nightActionTemplates": [
-        ["Choose 2 players to learn if they woke tonight."],
-        ["Of {player1} and {player2}, {count} woke tonight due to their ability."]
-      ]
+      "nightActionTemplates": [["Choose two alive players.", "I choose {player1} and {player2}."]]
     },
     "exorcist": {
       "id": "exorcist",
@@ -270,10 +276,7 @@
       "ability": "Each night*, choose a player (different to last night): the Demon, if chosen, learns who you are then doesn't wake tonight.",
       "firstNight": false,
       "otherNights": true,
-      "nightActionTemplates": [
-        ["Choose a player. If they are the Demon, they learn who you are and don't wake tonight."],
-        ["{player} is chosen by the Exorcist."]
-      ]
+      "nightActionTemplates": [["Choose a player.", "I choose {player}."]]
     },
     "innkeeper": {
       "id": "innkeeper",
@@ -282,10 +285,7 @@
       "ability": "Each night*, choose 2 players: they can't die tonight, but 1 is drunk until dusk.",
       "firstNight": false,
       "otherNights": true,
-      "nightActionTemplates": [
-        ["Choose 2 players: they can't die tonight, but 1 is drunk until dusk."],
-        ["{player1} and {player2} can't die tonight, but 1 is drunk until dusk."]
-      ]
+      "nightActionTemplates": [["Choose two players.", "I choose {player1} and {player2}."]]
     },
     "gambler": {
       "id": "gambler",
@@ -294,10 +294,7 @@
       "ability": "Each night*, choose a player & guess their character: if you guess wrong, you die.",
       "firstNight": false,
       "otherNights": true,
-      "nightActionTemplates": [
-        ["Choose a player and guess their character."],
-        ["You guessed {player} is the {guessed_role}. You are correct.", "You guessed {player} is the {guessed_role}. You are wrong and die."]
-      ]
+      "nightActionTemplates": [["Choose a player and a character.", "I guess {player} is {role}."]]
     },
     "gossip": {
       "id": "gossip",
@@ -305,10 +302,7 @@
       "team": "townsfolk",
       "ability": "Each day, you may make a public statement. Tonight, if it was true, a player dies.",
       "firstNight": false,
-      "otherNights": true,
-      "nightActionTemplates": [
-        ["Your statement \"{statement}\" was true. A player dies.", "Your statement \"{statement}\" was false. No one dies."]
-      ]
+      "otherNights": true
     },
     "courtier": {
       "id": "courtier",
@@ -318,8 +312,8 @@
       "firstNight": true,
       "otherNights": true,
       "nightActionTemplates": [
-        ["Choose a character to make drunk for 3 nights & 3 days."],
-        ["The {chosen_role} is drunk for 3 nights & 3 days."]
+        ["Do you wish to use your once-per-game ability?", "I choose {yesno}."],
+        ["Choose a character.", "I choose {role}."]
       ]
     },
     "professor": {
@@ -330,8 +324,8 @@
       "firstNight": false,
       "otherNights": true,
       "nightActionTemplates": [
-        ["Choose a dead player: if they are a Townsfolk, they are resurrected."],
-        ["{player} is resurrected.", "{player} is not a Townsfolk and cannot be resurrected."]
+        ["Do you wish to use your once-per-game ability?", "I choose {yesno}."],
+        ["Choose a dead player.", "I choose {player}."]
       ]
     },
     "minstrel": {
@@ -340,8 +334,7 @@
       "team": "townsfolk",
       "ability": "When a Minion dies by execution, all other players (except Travellers) are drunk until dusk tomorrow.",
       "firstNight": false,
-      "otherNights": true,
-      "nightActionTemplates": [["A Minion died by execution. All other players are drunk until dusk tomorrow."]]
+      "otherNights": false
     },
     "tea_lady": {
       "id": "tea_lady",
@@ -349,8 +342,7 @@
       "team": "townsfolk",
       "ability": "If both your alive neighbors are good, they can't die.",
       "firstNight": false,
-      "otherNights": false,
-      "nightActionTemplates": [[]]
+      "otherNights": false
     },
     "pacifist": {
       "id": "pacifist",
@@ -358,8 +350,7 @@
       "team": "townsfolk",
       "ability": "Executed good players might not die.",
       "firstNight": false,
-      "otherNights": false,
-      "nightActionTemplates": [[]]
+      "otherNights": false
     },
     "fool": {
       "id": "fool",
@@ -367,39 +358,39 @@
       "team": "townsfolk",
       "ability": "The first time you die, you don't.",
       "firstNight": false,
-      "otherNights": false,
-      "nightActionTemplates": [[]]
+      "otherNights": false
     },
     "goon": {
       "id": "goon",
       "name": "Goon",
       "team": "outsider",
       "ability": "Each night, the 1st player to choose you with their ability is drunk until dusk. You become their alignment.",
-      "firstNight": true,
+      "firstNight": false,
       "otherNights": true,
-      "nightActionTemplates": [["The first player to choose you tonight is drunk until dusk and you become their alignment."]]
+      "nightActionTemplates": [["You are {goodevil}."]]
     },
     "lunatic": {
       "id": "lunatic",
       "name": "Lunatic",
       "team": "outsider",
       "ability": "You think you are a Demon, but you are not. The Demon knows who you are & who you choose at night.",
+      "believesToBe": "demon",
       "firstNight": true,
       "otherNights": true,
       "nightActionTemplates": [
-        ["Choose a player to kill."],
-        ["You chose to kill {player}."]
-      ],
-      "believesToBe": "demon"
+        ["Your minion is {player1}."],
+        ["Your minions are {player1}, {player2}."],
+        ["Your minions are {player1}, {player2}, {player3}."],
+        ["These three roles are not in play: {good_role1}, {good_role2}, {good_role3}."]
+      ]
     },
     "tinker": {
       "id": "tinker",
       "name": "Tinker",
       "team": "outsider",
-      "ability": "You might die at any time.",
+      "ability": "You might die at night.",
       "firstNight": false,
-      "otherNights": true,
-      "nightActionTemplates": [["You might die tonight."]]
+      "otherNights": true
     },
     "moonchild": {
       "id": "moonchild",
@@ -407,11 +398,7 @@
       "team": "outsider",
       "ability": "When you learn that you died, publicly choose 1 alive player. Tonight, if it was a good player, they die.",
       "firstNight": false,
-      "otherNights": true,
-      "nightActionTemplates": [
-        ["You chose {player}. If they are good, they die tonight."],
-        ["{player} was good and dies.", "{player} was evil and lives."]
-      ]
+      "otherNights": false
     },
     "godfather": {
       "id": "godfather",
@@ -420,11 +407,7 @@
       "ability": "You start knowing which Outsiders are in play. If 1 died today, choose a player tonight: they die. [-1 or +1 Outsider]",
       "firstNight": true,
       "otherNights": true,
-      "nightActionTemplates": [
-        ["These Outsiders are in play: {outsider_list}."],
-        ["An Outsider died today. Choose a player to kill.", "No Outsider died today."],
-        ["{player} dies."]
-      ]
+      "nightActionTemplates": [["You learn that {role} is in play"], ["Choose a player to kill.", "I choose {player}."]]
     },
     "devils_advocate": {
       "id": "devils_advocate",
@@ -433,10 +416,7 @@
       "ability": "Each night, choose a living player (different to last night): if executed tomorrow, they don't die.",
       "firstNight": true,
       "otherNights": true,
-      "nightActionTemplates": [
-        ["Choose a player: if executed tomorrow, they don't die."],
-        ["{player} won't die if executed tomorrow."]
-      ]
+      "nightActionTemplates": [["Choose a player.", "I choose {player}."]]
     },
     "assassin": {
       "id": "assassin",
@@ -446,18 +426,17 @@
       "firstNight": false,
       "otherNights": true,
       "nightActionTemplates": [
-        ["Choose a player to assassinate."],
-        ["{player} is assassinated and dies."]
+        ["Do you wish to use your once-per-game ability?", "I choose {yesno}."],
+        ["Choose a player.", "I choose {player}."]
       ]
     },
     "mastermind": {
       "id": "mastermind",
       "name": "Mastermind",
       "team": "minion",
-      "ability": "If the Demon dies by execution (not if you are the Demon), play for 1 more day. If a player is then executed, evil wins.",
+      "ability": "If the Demon dies by execution (ending the game), play for 1 more day. If a player is then executed, evil wins.",
       "firstNight": false,
-      "otherNights": false,
-      "nightActionTemplates": [[]]
+      "otherNights": false
     },
     "zombuul": {
       "id": "zombuul",
@@ -467,8 +446,7 @@
       "firstNight": false,
       "otherNights": true,
       "nightActionTemplates": [
-        ["No one died today. Choose a player to kill.", "Someone died today. You don't kill."],
-        ["{player} dies."]
+        ["Choose a player to kill tonight.", "I choose to kill {player1}."]
       ]
     },
     "pukka": {
@@ -479,8 +457,7 @@
       "firstNight": true,
       "otherNights": true,
       "nightActionTemplates": [
-        ["Choose a player to poison."],
-        ["{player} is poisoned. The previously poisoned player dies."]
+        ["Choose a player to poison tonight and kill tomorrow.", "I choose {player1}."]
       ]
     },
     "shabaloth": {
@@ -491,9 +468,7 @@
       "firstNight": false,
       "otherNights": true,
       "nightActionTemplates": [
-        ["Choose 2 players to kill."],
-        ["{player1} and {player2} die."],
-        ["A dead player you chose last night might be regurgitated."]
+        ["Choose two players.", "I choose {player1} and {player2}."]
       ]
     },
     "po": {
@@ -504,10 +479,8 @@
       "firstNight": false,
       "otherNights": true,
       "nightActionTemplates": [
-        ["Choose a player to kill, or choose no-one."],
-        ["{player} dies.", "You choose no-one."],
-        ["You chose no-one last night. Choose 3 players to kill."],
-        ["{player1}, {player2}, and {player3} die."]
+        ["Choose a player.", "I choose {player}."],
+        ["Choose three players.", "I choose {player1}, {player2}, and {player3}."]
       ]
     },
     "clockmaker": {
@@ -517,18 +490,20 @@
       "ability": "You start knowing how many steps from the Demon to its nearest Minion.",
       "firstNight": true,
       "otherNights": false,
-      "nightActionTemplates": [["The Demon is {distance} steps from its nearest Minion."]]
+      "nightActionTemplates": [
+        ["The Demon is {number} steps from their nearest Minion."]
+      ]
     },
     "dreamer": {
       "id": "dreamer",
       "name": "Dreamer",
       "team": "townsfolk",
-      "ability": "Each night, choose a player (not yourself or Travellers): you learn 1 good & 1 evil character, 1 of which is correct.",
+      "ability": "Each night, choose a player (not yourself or Travellers): you learn 1 good and 1 evil role, 1 of which is correct.",
       "firstNight": true,
       "otherNights": true,
       "nightActionTemplates": [
-        ["Choose a player to learn about."],
-        ["{player} is either the {good_role} or the {evil_role}."]
+        ["Choose a player.", "I choose {player}."],
+        ["You learn {good_role} or {evil_role}."]
       ]
     },
     "snake_charmer": {
@@ -539,8 +514,8 @@
       "firstNight": true,
       "otherNights": true,
       "nightActionTemplates": [
-        ["Choose a player. If they are the Demon, you swap characters and alignments."],
-        ["You chose {player}. They are the Demon. You swap characters and alignments.", "You chose {player}. They are not the Demon."]
+        ["Choose a player.", "I choose {player}."],
+        ["You are the {demon_role}. You are {goodevil}."]
       ]
     },
     "mathematician": {
@@ -550,7 +525,9 @@
       "ability": "Each night, you learn how many players' abilities worked abnormally (since dawn) due to another character's ability.",
       "firstNight": true,
       "otherNights": true,
-      "nightActionTemplates": [["{count} players' abilities worked abnormally since dawn."]]
+      "nightActionTemplates": [
+        ["{number} players' abilities worked abnormally (since dawn) due to another character's ability."]
+      ]
     },
     "flowergirl": {
       "id": "flowergirl",
@@ -559,7 +536,9 @@
       "ability": "Each night*, you learn if a Demon voted today.",
       "firstNight": false,
       "otherNights": true,
-      "nightActionTemplates": [["A Demon voted today.", "No Demon voted today."]]
+      "nightActionTemplates": [
+        ["{yesno}, a Demon voted today."]
+      ]
     },
     "town_crier": {
       "id": "town_crier",
@@ -568,7 +547,9 @@
       "ability": "Each night*, you learn if a Minion nominated today.",
       "firstNight": false,
       "otherNights": true,
-      "nightActionTemplates": [["A Minion nominated today.", "No Minion nominated today."]]
+      "nightActionTemplates": [
+        ["{yesno}, a Minion nominated today."]
+      ]
     },
     "oracle": {
       "id": "oracle",
@@ -577,7 +558,9 @@
       "ability": "Each night*, you learn how many dead players are evil.",
       "firstNight": false,
       "otherNights": true,
-      "nightActionTemplates": [["{count} dead players are evil."]]
+      "nightActionTemplates": [
+        ["{number} dead players are evil."]
+      ]
     },
     "savant": {
       "id": "savant",
@@ -585,8 +568,7 @@
       "team": "townsfolk",
       "ability": "Each day, you may visit the Storyteller to learn 2 things in private: 1 is true & 1 is false.",
       "firstNight": false,
-      "otherNights": false,
-      "nightActionTemplates": [[]]
+      "otherNights": false
     },
     "seamstress": {
       "id": "seamstress",
@@ -596,20 +578,10 @@
       "firstNight": true,
       "otherNights": true,
       "nightActionTemplates": [
-        ["Choose 2 players to learn if they are the same alignment."],
-        ["{player1} and {player2} are the same alignment.", "{player1} and {player2} are different alignments."]
-      ]
-    },
-    "philosopher": {
-      "id": "philosopher",
-      "name": "Philosopher",
-      "team": "townsfolk",
-      "ability": "Once per game, at night, choose a good character: gain that ability. If this character is in play, they are drunk.",
-      "firstNight": true,
-      "otherNights": true,
-      "nightActionTemplates": [
-        ["Choose a good character to gain their ability."],
-        ["You gain the {chosen_role} ability. If that character is in play, they are drunk."]
+        ["Do you wish to use your once-per-game ability?", "I choose {yesno}."],
+        ["Choose two players.", "I choose {player1} and {player2}."],
+        ["Yes, they are the same alignment."],
+        ["No, they are not the same alignment."]
       ]
     },
     "artist": {
@@ -618,17 +590,18 @@
       "team": "townsfolk",
       "ability": "Once per game, during the day, privately ask the Storyteller any yes/no question.",
       "firstNight": false,
-      "otherNights": false,
-      "nightActionTemplates": [[]]
+      "otherNights": false
     },
     "juggler": {
       "id": "juggler",
       "name": "Juggler",
       "team": "townsfolk",
-      "ability": "On your 1st day, publicly guess up to 5 players' characters. That night, you learn how many you got exactly right.",
-      "firstNight": true,
-      "otherNights": false,
-      "nightActionTemplates": [["You guessed {count} characters exactly right."]]
+      "ability": "On your 1st day, publicly guess up to 5 players' characters. That night, you learn how many you got correct.",
+      "firstNight": false,
+      "otherNights": true,
+      "nightActionTemplates": [
+        ["You learn a {number}."]
+      ]
     },
     "sage": {
       "id": "sage",
@@ -637,7 +610,9 @@
       "ability": "If the Demon kills you, you learn that it is 1 of 2 players.",
       "firstNight": false,
       "otherNights": false,
-      "nightActionTemplates": [["The Demon is either {player1} or {player2}."]]
+      "nightActionTemplates": [
+        ["One of these players is the Demon: {player1} or {player2}."]
+      ]
     },
     "mutant": {
       "id": "mutant",
@@ -645,8 +620,7 @@
       "team": "outsider",
       "ability": "If you are \"mad\" about being an Outsider, you might be executed.",
       "firstNight": false,
-      "otherNights": false,
-      "nightActionTemplates": [[]]
+      "otherNights": false
     },
     "sweetheart": {
       "id": "sweetheart",
@@ -654,8 +628,7 @@
       "team": "outsider",
       "ability": "When you die, 1 player is drunk from now on.",
       "firstNight": false,
-      "otherNights": false,
-      "nightActionTemplates": [[]]
+      "otherNights": false
     },
     "barber": {
       "id": "barber",
@@ -663,8 +636,7 @@
       "team": "outsider",
       "ability": "If you died today or tonight, the Demon may choose 2 players (not another Demon) to swap characters.",
       "firstNight": false,
-      "otherNights": true,
-      "nightActionTemplates": [["The Barber died. The Demon may choose 2 players to swap characters."]]
+      "otherNights": false
     },
     "klutz": {
       "id": "klutz",
@@ -672,8 +644,7 @@
       "team": "outsider",
       "ability": "When you learn that you died, publicly choose 1 alive player: if they are evil, your team loses.",
       "firstNight": false,
-      "otherNights": false,
-      "nightActionTemplates": [[]]
+      "otherNights": false
     },
     "evil_twin": {
       "id": "evil_twin",
@@ -682,7 +653,7 @@
       "ability": "You & an opposing player know each other. If the good player is executed, evil wins. Good can't win if you both live.",
       "firstNight": true,
       "otherNights": false,
-      "nightActionTemplates": [["Your twin is {player}."]]
+      "nightActionTemplates": [["You learn {player} is your twin."]]
     },
     "witch": {
       "id": "witch",
@@ -691,10 +662,7 @@
       "ability": "Each night, choose a player: if they nominate tomorrow, they die. If only 3 players live, you lose this ability.",
       "firstNight": true,
       "otherNights": true,
-      "nightActionTemplates": [
-        ["Choose a player: if they nominate tomorrow, they die."],
-        ["{player} dies if they nominate tomorrow."]
-      ]
+      "nightActionTemplates": [["Choose a player.", "I choose {player}."]]
     },
     "cerenovus": {
       "id": "cerenovus",
@@ -703,22 +671,16 @@
       "ability": "Each night, choose a player & a good character: they are \"mad\" they are this character tomorrow, or might be executed.",
       "firstNight": true,
       "otherNights": true,
-      "nightActionTemplates": [
-        ["Choose a player and a good character: they are \"mad\" they are this character tomorrow."],
-        ["{player} is \"mad\" they are the {chosen_role} tomorrow."]
-      ]
+      "nightActionTemplates": [["Choose a player and a good character.", "I choose {player} and {good_role}."]]
     },
     "pit_hag": {
       "id": "pit_hag",
       "name": "Pit-Hag",
       "team": "minion",
-      "ability": "Each night*, choose a player & a character they become (if not-in-play). If a Demon is made, deaths tonight are arbitrary.",
+      "ability": "Each night*, choose a player & a character they become (if not in play). If a Demon is made, deaths tonight are arbitrary.",
       "firstNight": false,
       "otherNights": true,
-      "nightActionTemplates": [
-        ["Choose a player and a character for them to become."],
-        ["{player} becomes the {new_role}."]
-      ]
+      "nightActionTemplates": [["Choose a player and a character.", "I choose {player} and {role}."]]
     },
     "fang_gu": {
       "id": "fang_gu",
@@ -728,9 +690,7 @@
       "firstNight": false,
       "otherNights": true,
       "nightActionTemplates": [
-        ["Choose a player to kill."],
-        ["{player} dies."],
-        ["{player} was an Outsider and becomes an evil Fang Gu. You die instead."]
+        ["Choose a player to kill tonight.", "I choose to kill {player1}."]
       ]
     },
     "vigormortis": {
@@ -741,8 +701,7 @@
       "firstNight": false,
       "otherNights": true,
       "nightActionTemplates": [
-        ["Choose a player to kill."],
-        ["{player} dies. If they were a Minion, they keep their ability and poison 1 Townsfolk neighbor."]
+        ["Choose a player to kill tonight.", "I choose to kill {player1}."]
       ]
     },
     "no_dashii": {
@@ -753,8 +712,7 @@
       "firstNight": false,
       "otherNights": true,
       "nightActionTemplates": [
-        ["Choose a player to kill."],
-        ["{player} dies. Your 2 Townsfolk neighbors are poisoned."]
+        ["Choose a player to kill tonight.", "I choose to kill {player1}."]
       ]
     },
     "vortox": {
@@ -765,8 +723,7 @@
       "firstNight": false,
       "otherNights": true,
       "nightActionTemplates": [
-        ["Choose a player to kill."],
-        ["{player} dies. Townsfolk abilities yield false info."]
+        ["Choose a player to kill tonight.", "I choose to kill {player1}."]
       ]
     },
     "yaggababble": {
@@ -774,9 +731,11 @@
       "name": "Yaggababble",
       "team": "demon",
       "ability": "You start knowing a secret phrase. For each time you said it publicly today, a player might die.",
+      "firstNight": true,
+      "otherNights": true,
       "nightActionTemplates": [
-        [["Your secret phrase is \"{phrase}\"."]],
-        []
+        ["Your secret phrase is: {secret_phrase}"],
+        ["You may kill up to {number} players tonight."]
       ]
     }
   },
