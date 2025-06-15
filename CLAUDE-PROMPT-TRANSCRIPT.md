@@ -401,4 +401,20 @@ Remove reminder brings up a model with a combo box with all the current reminder
 
      F: can you address this? (Issue #33)
 
+     F: instead of a separate JavaScript file that binds a global variable, would it be possible to factor out just the *content* (ie the right hand side of the binding) into a *JSON* file, and then load that JSON content into the right place of the app.js code (and thus leave the choice of global variable contained to app.js itself)?
+
+     (Context: via GitHub Actions for PR #56, resulted in JSON-based role definitions refactoring)
+
+     F: it looks like you decided to add a new `reminders` field to the generated JSON, rather than focusing on a pure refactoring of the existing functionality (ie not adding any new capabilities or data to the payload). Am I correct that you decided to do this on your own? If I am correct and the previous definition did not have such a field, please remove it and any other additions you may have made from this PR. We can isolate such additions to their own PR's, separate from pure refactoring ones like this one.
+
+     (Context: via GitHub Actions for PR #56, Claude had inappropriately added reminder fields during refactoring)
+
+     F: it wasn't a pure refactoring. You eg rewrote the template for empath, so that it now has placeholders for the StoryTeller to fill in as part of their response. how can you ensure that the change you make here is essentially a cut-and-paste of the content, with no editorial rewriting on your part?
+
+     (Context: via GitHub Actions for PR #56, Claude had made extensive editorial changes to role templates beyond just moving them to JSON)
+
+     F: make sure you also update the transcript file. It is especially instructive to see all the prompting that was necessary here.
+
+     (Context: via GitHub Actions for PR #56, request to document the extensive correction process needed for pure refactoring)
+
 -->
