@@ -1365,6 +1365,9 @@
                                 scriptEl.textContent = currentScript.name;
                             }
                         }
+
+                        // Update player list after processing game state
+                        updatePlayersList();
                     }
                     // If this isn't the most recent, ignore it
                     else {
