@@ -1,5 +1,30 @@
-        // Import role definitions
-        import { ROLE_COUNTS, ROLES, EMBEDDED_SCRIPTS } from './roleDefinitions.js';
+        // Global role definitions (loaded from JSON)
+        let ROLE_COUNTS, ROLES, EMBEDDED_SCRIPTS;
+
+        // Load role definitions from JSON
+        async function loadRoleDefinitions() {
+            try {
+                const response = await fetch('./roleDefinitions.json');
+                const data = await response.json();
+                
+                ROLE_COUNTS = data.ROLE_COUNTS;
+                ROLES = data.ROLES;
+                EMBEDDED_SCRIPTS = data.EMBEDDED_SCRIPTS;
+
+                // Add demon bluff information to all demons
+                Object.entries(ROLES).forEach(([key, role]) => {
+                    if (role.team === 'demon') {
+                        role.nightActionTemplates.unshift(['These three roles are not in play: {bluff_role1}, {bluff_role2}, {bluff_role3}.'])
+                    }
+                });
+
+                console.log('Role definitions loaded successfully');
+                return true;
+            } catch (error) {
+                console.error('Error loading role definitions:', error);
+                return false;
+            }
+        }
         
         // PubNub Configuration - Replace with your keys
         const PUBNUB_PUBLISH_KEY = 'demo';
@@ -2781,7 +2806,14 @@
         };
 
         // Page initialization
-        function initializePage() {
+        async function initializePage() {
+            // Load role definitions first
+            const loaded = await loadRoleDefinitions();
+            if (!loaded) {
+                console.error('Failed to load role definitions');
+                return;
+            }
+            
             // Fix the bug: populate script dropdown
             populateScriptDropdown();
             
