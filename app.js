@@ -30,7 +30,7 @@
         const PUBNUB_PUBLISH_KEY = 'demo';
         const PUBNUB_SUBSCRIBE_KEY = 'demo';
 
-        let pubnub;
+        let messageProvider;
         let currentUser = '';
         let currentRoom = '';
         let userType = '';
@@ -293,7 +293,7 @@
                 currentGameId = null;
             }
 
-            initializePubNub();
+            initializeMessageProvider();
             // If storyteller starting new game, mark current time to ignore older setups
             if (userType === 'storyteller' && gameMode === 'new') {
                 mostRecentSetupTimestamp = Date.now();
@@ -317,57 +317,59 @@
             });
         }
 
-        function initializePubNub() {
-            pubnub = new PubNub({
-                publishKey: PUBNUB_PUBLISH_KEY,
-                subscribeKey: PUBNUB_SUBSCRIBE_KEY,
-                userId: currentUser
-            });
+        async function initializeMessageProvider() {
+            try {
+                // Create provider - could be configurable in the future
+                messageProvider = createMessageProvider('pubnub');
+                
+                // Connect to the service
+                await messageProvider.connect({
+                    publishKey: PUBNUB_PUBLISH_KEY,
+                    subscribeKey: PUBNUB_SUBSCRIBE_KEY,
+                    userId: currentUser
+                });
 
-            pubnub.subscribe({ channels: [currentRoom] });
+                // Set up channel and game context
+                messageProvider.setChannel(currentRoom);
+                messageProvider.setGameId(currentGameId);
 
-            pubnub.addListener({
-                message: function(messageEvent) {
-                    handleIncomingMessage(messageEvent.message);
-                },
-                status: function(statusEvent) {
-                    handleConnectionStatus(statusEvent);
+                // Subscribe to messages
+                messageProvider.subscribe(currentRoom, handleIncomingMessage);
 
-                    // When successfully connected, fetch message history
-                    if (statusEvent.category === 'PNConnectedCategory') {
-                        fetchMessageHistory();
+                // Fetch message history after connection
+                await fetchMessageHistory();
 
-                        // If storyteller, send game setup immediately when connected
-                        if (userType === 'storyteller') {
-                            sendGameSetup();
-                        }
-                    }
+                // If storyteller, send game setup immediately when connected
+                if (userType === 'storyteller') {
+                    sendGameSetup();
                 }
-            });
+
+                isConnected = true;
+                showRoomStatus('Connected to room: ' + currentRoom, 'success');
+                
+            } catch (error) {
+                console.error('Failed to initialize message provider:', error);
+                showRoomStatus('Failed to connect: ' + error.message, 'error');
+            }
 
         }
 
-        function fetchMessageHistory() {
-            // Fetch the last 100 messages (adjust count as needed)
-            pubnub.history({
-                channel: currentRoom,
-                count: 100, // Max messages to fetch
-                reverse: false // false = newest first, true = oldest first
-            }).then((response) => {
-                if (response.messages && response.messages.length > 0) {
+        async function fetchMessageHistory() {
+            try {
+                // Fetch the last 100 messages (adjust count as needed)
+                const messages = await messageProvider.getHistory(currentRoom, 100);
+                
+                if (messages && messages.length > 0) {
                     // Process messages in chronological order (oldest first)
-                    const messages = response.messages.reverse();
-
-                    messages.forEach(messageWrapper => {
-                        // PubNub history wraps messages in an object with timetoken
-                        const message = messageWrapper.entry;
+                    // Note: getHistory returns messages in oldest-first order
+                    messages.forEach(message => {
                         reconstructGameStateFromMessage(message);
                         handleIncomingMessage(message, true); // true = from history
                     });
                 }
-            }).catch((error) => {
+            } catch (error) {
                 console.log('Error fetching message history:', error);
-            });
+            }
         }
 
         function reconstructGameStateFromMessage(message) {
@@ -470,9 +472,9 @@
                 timestamp: Date.now()
             };
 
-            pubnub.publish({
-                channel: currentRoom,
-                message: setupMessage
+            messageProvider.publishGameSetup({
+                ...setupMessage,
+                from: currentUser
             });
         }
 
@@ -480,13 +482,9 @@
             const newPhase = isNightTime ? 'daybreak' : 'nightfall';
 
             // Broadcast the specific phase event
-            pubnub.publish({
-                channel: currentRoom,
-                message: {
-                    type: newPhase,
-                    gameId: currentGameId,
-                    timestamp: Date.now()
-                }
+            messageProvider.publishPhaseChange({
+                phase: newPhase,
+                from: currentUser
             });
         }
 
@@ -1011,14 +1009,9 @@
             playerRoles[selectedPlayerForRole] = selectedRole;
 
             // Broadcast role assignment to other storytellers (if any)
-            pubnub.publish({
-                channel: currentRoom,
-                message: {
-                    gameId: currentGameId,
-                    type: 'role_assignment',
-                    playerRoles: playerRoles,
-                    timestamp: Date.now()
-                }
+            messageProvider.publishGameMessage('role_assignment', {
+                playerRoles: playerRoles,
+                from: currentUser
             });
 
             updatePlayersList();
@@ -1047,14 +1040,9 @@
             players = shuffledPlayers
 
             // Broadcast the new assignments
-            pubnub.publish({
-                channel: currentRoom,
-                message: {
-                    gameId: currentGameId,
-                    type: 'seat_assignment',
-                    players: players,
-                    timestamp: Date.now()
-                }
+            messageProvider.publishGameMessage('seat_assignment', {
+                players: players,
+                from: currentUser
             });
 
             updatePlayersList();
@@ -1428,10 +1416,7 @@
             displayMessage(message, true);
             sentMessages.set(message.timestamp, true);
 
-            pubnub.publish({
-                channel: currentRoom,
-                message: message
-            });
+            messageProvider.publish(currentRoom, message);
 
             cancelTemplate();
         }
@@ -1471,10 +1456,7 @@
             displayMessage(message, true);
             sentMessages.set(message.timestamp, true);
 
-            pubnub.publish({
-                channel: currentRoom,
-                message: message
-            });
+            messageProvider.publish(currentRoom, message);
 
             messageInput.value = '';
         }
@@ -1738,10 +1720,7 @@
             displayMessage(message, true);
             sentMessages.set(message.timestamp, true);
 
-            pubnub.publish({
-                channel: currentRoom,
-                message: message
-            });
+            messageProvider.publish(currentRoom, message);
 
             // Disable the response UI
             responseDiv.style.opacity = '0.5';
@@ -1863,7 +1842,7 @@
             // Initialize PubNub connection and send game setup so players can join during role selection
             currentUser = 'Storyteller';
             initializePlayerRoles();
-            initializePubNub();
+            initializeMessageProvider();
             mostRecentSetupTimestamp = Date.now();
 
             // Show target distribution
@@ -2108,14 +2087,9 @@
 
             // Broadcast the role assignments
             setTimeout(() => {
-                pubnub.publish({
-                    channel: currentRoom,
-                    message: {
-                        gameId: currentGameId,
-                        type: 'role_assignment',
-                        playerRoles: playerRoles,
-                        timestamp: Date.now()
-                    }
+                messageProvider.publishGameMessage('role_assignment', {
+                    playerRoles: playerRoles,
+                    from: currentUser
                 });
         }, 1000);
         }
@@ -2222,10 +2196,7 @@
                         displayMessage(message, true);
                         sentMessages.set(message.timestamp, true);
 
-                        pubnub.publish({
-                            channel: currentRoom,
-                            message: message
-                        });
+                        messageProvider.publish(currentRoom, message);
 
                         sentCount++;
                     }
@@ -2275,10 +2246,7 @@
             displayMessage(message, true);
             sentMessages.set(message.timestamp, true);
 
-            pubnub.publish({
-                channel: currentRoom,
-                message: message
-            });
+            messageProvider.publish(currentRoom, message);
 
             sentCount++;
 
@@ -2308,10 +2276,7 @@
                 displayMessage(message, true);
                 sentMessages.set(message.timestamp, true);
 
-                pubnub.publish({
-                    channel: currentRoom,
-                    message: message
-                });
+                messageProvider.publish(currentRoom, message);
 
                 sentCount++;
             })
@@ -2398,14 +2363,9 @@
             playerRoles[selectedPlayerForRole] = selectedRole;
 
             // Broadcast role assignment
-            pubnub.publish({
-                channel: currentRoom,
-                message: {
-                    gameId: currentGameId,
-                    type: 'role_assignment',
-                    playerRoles: playerRoles,
-                    timestamp: Date.now()
-                }
+            messageProvider.publishGameMessage('role_assignment', {
+                playerRoles: playerRoles,
+                from: currentUser
             });
 
             updatePlayersList();
@@ -2457,15 +2417,10 @@
             // Update local state
             players.splice(selectedSeat, 0, players.splice(prevSeat, 1)[0]);
 
-            // Broadcast role assignment
-            pubnub.publish({
-                channel: currentRoom,
-                message: {
-                    gameId: currentGameId,
-                    type: 'seat_assignment',
-                    players: players,
-                    timestamp: Date.now()
-                }
+            // Broadcast seat assignment
+            messageProvider.publishGameMessage('seat_assignment', {
+                players: players,
+                from: currentUser
             });
 
             updatePlayersList();
@@ -2514,14 +2469,9 @@
             playerReminders[selectedPlayerForRole].push(reminderText);
 
             // Broadcast reminder update
-            pubnub.publish({
-                channel: currentRoom,
-                message: {
-                    gameId: currentGameId,
-                    type: 'reminder_update',
-                    playerReminders: playerReminders,
-                    timestamp: Date.now()
-                }
+            messageProvider.publishGameMessage('reminder_update', {
+                playerReminders: playerReminders,
+                from: currentUser
             });
 
             updatePlayersList();
@@ -2539,14 +2489,9 @@
             playerDeathState[selectedPlayerForRole] = newState;
 
             // Broadcast death state update
-            pubnub.publish({
-                channel: currentRoom,
-                message: {
-                    gameId: currentGameId,
-                    type: 'death_update',
-                    playerDeathState: playerDeathState,
-                    timestamp: Date.now()
-                }
+            messageProvider.publishGameMessage('death_update', {
+                playerDeathState: playerDeathState,
+                from: currentUser
             });
 
             updatePlayersList();
@@ -2563,14 +2508,9 @@
             playerGhostVotes[selectedPlayerForRole] = newState;
 
             // Broadcast ghost vote state update
-            pubnub.publish({
-                channel: currentRoom,
-                message: {
-                    gameId: currentGameId,
-                    type: 'ghost_vote_update',
-                    playerGhostVotes: playerGhostVotes,
-                    timestamp: Date.now()
-                }
+            messageProvider.publishGameMessage('ghost_vote_update', {
+                playerGhostVotes: playerGhostVotes,
+                from: currentUser
             });
 
             updatePlayersList();
@@ -2628,14 +2568,9 @@
             }
 
             // Broadcast reminder update
-            pubnub.publish({
-                channel: currentRoom,
-                message: {
-                    gameId: currentGameId,
-                    type: 'reminder_update',
-                    playerReminders: playerReminders,
-                    timestamp: Date.now()
-                }
+            messageProvider.publishGameMessage('reminder_update', {
+                playerReminders: playerReminders,
+                from: currentUser
             });
 
             updatePlayersList();
@@ -2766,7 +2701,7 @@
                 console.log('Auto-joining game from URL parameters');
                 
                 // Initialize PubNub connection
-                initializePubNub();
+                initializeMessageProvider();
                 
                 // Switch to game screen
                 switchToGameScreen();
@@ -2775,13 +2710,8 @@
                 if (userType === 'player') {
                     // Request current game state from storyteller
                     setTimeout(() => {
-                        pubnub.publish({
-                            channel: currentRoom,
-                            message: {
-                                type: 'request_game_state',
-                                from: currentUser,
-                                timestamp: Date.now()
-                            }
+                        messageProvider.publishGameMessage('request_game_state', {
+                            from: currentUser
                         });
                     }, 1000); // Wait a moment for connection to establish
                 }
